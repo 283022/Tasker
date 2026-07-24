@@ -1,4 +1,6 @@
-﻿namespace Authorization2;
+﻿using Authorization2.Domain.Entities;
+
+namespace Authorization2;
 
 public class UserRepository
 {
@@ -6,7 +8,7 @@ public class UserRepository
 
     public User? GetUserByEmail(string email)
     {
-        return _users.FirstOrDefault(user => user.Email == email);
+        return _users.FirstOrDefault(user => user.Email.Value == email);
     }
 
     public void CreateUser(User user)
@@ -21,7 +23,7 @@ public class UserRepository
 
     public bool UserExists(string email)
     {
-        return _users.Any(user => user.Email == email);
+        return _users.Any(user => user.Email.Value == email);
     }
     
     

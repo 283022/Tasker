@@ -1,4 +1,6 @@
-﻿namespace Authorization2;
+﻿using Authorization2.Domain.Entities;
+
+namespace Authorization2;
 
 public class TaskRepository
 {

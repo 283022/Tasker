@@ -1,8 +1,19 @@
-﻿namespace Authorization2;
+﻿using System.ComponentModel.DataAnnotations;
 
-public record CreateUserDto(string Name, string Email, string Password);
-public record CreateTaskDto(Guid userid, string Name);
-public record DeleteTaskDto(Guid id);
-public record GetTaskDto(Guid id);
+namespace Authorization2;
 
-public record LoginUserDto(string Email, string Password);
+public record CreateUserDto(
+    [Required] string Name, 
+    [Required] [EmailAddress] string Email, 
+    [Required] string Password);
+public record CreateTaskDto(
+    [Required] Guid userid, 
+    [Required] string Name);
+public record DeleteTaskDto(
+    [Required] Guid id);
+public record GetTaskDto(
+    [Required] Guid id);
+
+public record LoginUserDto(
+    [Required] [EmailAddress] string Email, 
+    [Required] string Password);

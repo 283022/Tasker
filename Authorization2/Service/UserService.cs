@@ -1,4 +1,6 @@
 ﻿using System.Data;
+using Authorization2.Domain;
+using Authorization2.Domain.Entities;
 using Authorization2.Mappers;
 
 namespace Authorization2;
@@ -7,16 +9,18 @@ public class UserService(UserRepository userRepository,MapperUserFromDto mapper)
 {
     private readonly UserRepository _userRepository = userRepository;
 
-    public void Register(CreateUserDto request)
+    public Result Register(CreateUserDto request)
     {
-        ArgumentNullException.ThrowIfNull(request);
-        if (request.Name is null || 
-            _userRepository.UserExists(request.Email))
-        {
-            throw new DataException("This data is not available");
-        }
-
-        _userRepository.CreateUser(mapper.Map(request));
+        if (request is null)
+            return Result.Failure(new Error("Validation","Request cannot be null"));
+        if (_userRepository.UserExists(request.Email))
+            return Result.Failure(new Error("Conflict",$"User with email {request.Email} already exists"));
+        var user =  mapper.Map(request);
+        if (user.IsFailure) return Result.Failure(user.Error);
+        _userRepository.CreateUser(user.Value);
+        
+        return Result.Success();
+        
     }
 
     private bool UserExists(string email)
@@ -24,18 +28,31 @@ public class UserService(UserRepository userRepository,MapperUserFromDto mapper)
         return _userRepository.UserExists(email);
     }
 
-    public bool Userlogin(LoginUserDto request)
+    public Result<User> Userlogin(LoginUserDto request)
     {
+        if (request is null)
+            return Result<User>.Failure(new Error("Validation","Request cannot be null"));
+
         var user = _userRepository.GetUserByEmail(request.Email);
-        if (user is null) throw new UnauthorizedAccessException("user is not found");
-        return user.Password == request.Password;
+        if (user is null)
+            return Result<User>.Failure(new Error("UserNotFounded", request.Email + "not found"));
+
+        if (user.Password.Value != request.Password)
+            return Result<User>.Failure(new Error("Unauthorized","Invalid credentials"));
+
+        return Result<User>.Success(user);
     }
 
-    public Guid GetUseId(LoginUserDto request)
+    public Result<Guid> GetUserId(LoginUserDto request)
     {
+        if (request is null)
+            return Result<Guid>.Failure(new Error("Validation","Request cannot be null"));
+
         var user = _userRepository.GetUserByEmail(request.Email);
-        if (user is null) throw new UnauthorizedAccessException("user is not found");
-        return user.ID;
+        if (user is null)
+            return Result<Guid>.Failure(new Error("NotFound", request.Email + "not found"));
+
+        return Result<Guid>.Success(user.ID);
     }
     
 }

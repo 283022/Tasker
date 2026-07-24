@@ -2,7 +2,6 @@
 using System.Security.Claims;
 using System.Text;
 using Authorization2.Auth;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 
 namespace Authorization2;
@@ -21,7 +20,7 @@ public static class Endpoints
             if (taskService is null) Results.InternalServerError();
             var id = taskService.Create(request);
             
-            return Results.Ok(id.ToString("D"));
+            return Results.Ok(id.Value.ToString("D"));
         }).RequireAuthorization();
         
         app.MapGet("/Task/{id}", (Guid id, TaskService taskService) =>
@@ -32,27 +31,47 @@ public static class Endpoints
 
         app.MapPost("/register", (CreateUserDto request, UserService userService) =>
         {
-            if (userService is null) Results.InternalServerError();
-            userService.Register(request);
+            if (userService is null)
+                return Results.Problem("Service unavailable");
+
+            var result = userService.Register(request);
+    
+            if (result.IsFailure)
+                return Results.BadRequest(new { error = result.Error.Message });
+
             return Results.Created();
         });
-
+        
         app.MapPost("/login", (LoginUserDto request, HttpContext context, UserService userService) =>
         {
-            if (userService is null) Results.InternalServerError();
-            userService.Userlogin(request);
-            var id = userService.GetUseId(request);
-            var claims = new List<Claim> {new Claim("id",id.ToString() ) };
+            if (userService is null)
+                return Results.Problem("Service unavailable");
+            
+            var loginResult = userService.Userlogin(request);
+            if (loginResult.IsFailure)
+                return Results.Unauthorized();
+
+            var user = loginResult.Value;
+    
+            // Генерация JWT
+            var claims = new List<Claim> { new Claim("id", user.ID.ToString()) };
             var jwt = new JwtSecurityToken(
-                claims: claims ,
-                expires: DateTime.UtcNow.Add(TimeSpan.FromMinutes(2)),
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(2),
                 signingCredentials: new SigningCredentials(
                     new SymmetricSecurityKey(Encoding.UTF8.GetBytes("qwertyuiop[]asdfghjkl;'zxcvbnm,./")),
                     SecurityAlgorithms.HmacSha256));
+    
             var token = new JwtSecurityTokenHandler().WriteToken(jwt);
-            if (token is null) Results.InternalServerError();
-            context.Response.Cookies.Append("zxc", $"{token}");
-            return  Results.Ok();
+            context.Response.Cookies.Append("zxc", token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Expires = DateTime.UtcNow.AddMinutes(2)
+            });
+    
+            return Results.Ok(new { message = "Login successful" });
         });
         
         return app;

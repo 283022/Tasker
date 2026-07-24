@@ -1,6 +1,8 @@
-﻿namespace Authorization2.Mappers;
+﻿using Authorization2.Domain;
+
+namespace Authorization2.Mappers;
 
 public interface IMapper<T,B>
 {
-    public B Map(T  source);
+    public Result<B> Map(T  source);
 }

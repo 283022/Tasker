@@ -1,10 +1,18 @@
-﻿namespace Authorization2.Mappers;
+﻿using Authorization2.Domain;
+using Authorization2.Domain.Entities;
+using Authorization2.Domain.ValueObjects;
+
+namespace Authorization2.Mappers;
 
 public class MapperUserFromDto : IMapper<CreateUserDto,User>
 {
-    public User Map(CreateUserDto source)
+    public Result<User> Map(CreateUserDto source)
     {
-        return new User(source.Name, source.Email, source.Password);
-        
+        var email = Email.Create(source.Email);
+        var password = Password.Create(source.Password);
+
+        return email.IsFailure ? Result<User>.Failure(email.Error) :
+            password.IsFailure ? Result<User>.Failure(password.Error) :
+            User.Create(source.Name, email.Value, password.Value);
     }
 }
