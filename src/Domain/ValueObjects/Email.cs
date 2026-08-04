@@ -17,10 +17,15 @@ public class Email : ValueObject
         // Проверка на null или пустую строку
         if (string.IsNullOrWhiteSpace(email))
             return Result<Email>.Failure(new Error("Validation", "Email is required"));
-
         // Trim лишних пробелов
         email = email.Trim();
 
+        
+        // Проверка на наличие пробелов внутри адрес
+        if (email.Contains(" "))
+            return Result<Email>.Failure(new Error("Validation", "Password cannot contain spaces"));
+        
+        
         // Проверка длины (максимальная длина email - 254 символа)
         if (email.Length > 254)
             return Result<Email>.Failure(new Error("Validation","Email is too long (max 254 characters)"));
