@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 
-namespace Authorization2.Auth;
+namespace src.Auth;
 
 public class SameAuthorRequirement: IAuthorizationRequirement
 {

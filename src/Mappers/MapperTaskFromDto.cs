@@ -1,7 +1,7 @@
-﻿using Authorization2.Domain;
-using Authorization2.Domain.Entities;
+﻿using src.Domain;
+using src.Domain.Entities;
 
-namespace Authorization2.Mappers;
+namespace src.Mappers;
 
 public class MapperTaskFromDto: IMapper<CreateTaskDto, UserTask>
 {

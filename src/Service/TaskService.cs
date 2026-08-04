@@ -1,8 +1,8 @@
-﻿using Authorization2.Domain;
-using Authorization2.Domain.Entities;
-using Authorization2.Mappers;
+﻿using src.Domain;
+using src.Domain.Entities;
+using src.Mappers;
 
-namespace Authorization2;
+namespace src;
 
 public class TaskService(TaskRepository taskRepository, MapperTaskFromDto mapper)
 {

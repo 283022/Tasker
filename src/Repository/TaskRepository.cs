@@ -1,6 +1,6 @@
-﻿using Authorization2.Domain.Entities;
+﻿using src.Domain.Entities;
 
-namespace Authorization2;
+namespace src;
 
 public class TaskRepository
 {

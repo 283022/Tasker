@@ -1,6 +1,6 @@
-﻿using Authorization2.Domain;
+﻿using src.Domain;
 
-namespace Authorization2.Mappers;
+namespace src.Mappers;
 
 public interface IMapper<T,B>
 {

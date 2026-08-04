@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authorization.Infrastructure;
 
-namespace Authorization2.Auth;
+namespace src.Auth;
 
 public class TasklHandlerByUser : AuthorizationHandler<SameAuthorRequirement>
 {

@@ -1,6 +1,6 @@
-﻿using Authorization2.Domain.ValueObjects;
+﻿using src.Domain.ValueObjects;
 
-namespace Authorization2.Domain.Entities;
+namespace src.Domain.Entities;
 
 public class User
 {

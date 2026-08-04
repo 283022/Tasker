@@ -1,7 +1,7 @@
 ﻿using System.Text.RegularExpressions;
-using Authorization2.Domain.ValueObjects;
+using src.Domain.ValueObjects;
 
-namespace Authorization2.Domain.ValueObjects;
+namespace src.Domain.ValueObjects;
 
 public class Email : ValueObject
 {

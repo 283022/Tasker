@@ -1,8 +1,8 @@
-﻿using Authorization2.Domain;
-using Authorization2.Domain.Entities;
-using Authorization2.Domain.ValueObjects;
+﻿using src.Domain;
+using src.Domain.Entities;
+using src.Domain.ValueObjects;
 
-namespace Authorization2.Mappers;
+namespace src.Mappers;
 
 public class MapperUserFromDto : IMapper<CreateUserDto,User>
 {

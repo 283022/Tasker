@@ -1,4 +1,4 @@
-﻿namespace Authorization2.Domain;
+﻿namespace src.Domain;
 
 public class Result
 {

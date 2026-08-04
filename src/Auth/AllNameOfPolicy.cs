@@ -1,4 +1,4 @@
-﻿namespace Authorization2.Auth;
+﻿namespace src.Auth;
 
 public static class AllNameOfPolicy
 {

@@ -1,10 +1,10 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Authorization2.Auth;
 using Microsoft.IdentityModel.Tokens;
+using src.Auth;
 
-namespace Authorization2;
+namespace src;
 
 public static class Endpoints
 {

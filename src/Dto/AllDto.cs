@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Authorization2;
+namespace src;
 
 public record CreateUserDto(
     [Required] string Name, 

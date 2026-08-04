@@ -1,4 +1,4 @@
-﻿namespace Authorization2.Domain.Entities;
+﻿namespace src.Domain.Entities;
 
 public class UserTask
 {

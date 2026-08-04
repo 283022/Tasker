@@ -1,4 +1,4 @@
-﻿namespace Authorization2.Domain.ValueObjects;
+﻿namespace src.Domain.ValueObjects;
 
 public class Password : ValueObject
 {

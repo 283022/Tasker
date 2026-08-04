@@ -1,7 +1,7 @@
 using System.Text;
-using Authorization2;
-using Authorization2.Auth;
-using Authorization2.Mappers;
+using src;
+using src.Auth;
+using src.Mappers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
