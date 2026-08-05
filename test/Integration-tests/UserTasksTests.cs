@@ -1,7 +1,7 @@
 ﻿using src;
 using src.Mappers;
 
-namespace TestProject1.Integrational_Tests;
+namespace TestProject1.Integration_tests;
 
 public class TaskServiceTests
 {
