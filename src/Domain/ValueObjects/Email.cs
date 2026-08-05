@@ -23,7 +23,7 @@ public class Email : ValueObject
         
         // Проверка на наличие пробелов внутри адрес
         if (email.Contains(" "))
-            return Result<Email>.Failure(new Error("Validation", "Password cannot contain spaces"));
+            return Result<Email>.Failure(new Error("Validation", "Email cannot contain spaces"));
         
         
         // Проверка длины (максимальная длина email - 254 символа)
@@ -38,7 +38,10 @@ public class Email : ValueObject
         var localPart = email.Split('@')[0];
         if (localPart.Length > 64)
             return Result<Email>.Failure(new Error("Validation","Local part of email is too long (max 64 characters)"));
-
+        
+        // Проверяем, что домен не заканчивается на точку
+        if (email.EndsWith('.'))
+            return Result<Email>.Failure(new Error("Validation", "Invalid domain"));
         // Приводим к нижнему регистру (каноническая форма)
         email = email.ToLowerInvariant();
 

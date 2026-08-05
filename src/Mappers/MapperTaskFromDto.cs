@@ -8,6 +8,8 @@ public class MapperTaskFromDto: IMapper<CreateTaskDto, UserTask>
 
     public Result<UserTask> Map(CreateTaskDto source)
     {
-        return UserTask.Create(source.Name, source.userid);
+        return source is null ? 
+            Result<UserTask>.Failure(new Error("Validation", "Request cannot be null")) : 
+            UserTask.Create(source.Name, source.userid);
     }
 }

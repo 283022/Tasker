@@ -49,4 +49,5 @@ public class TaskRepository
         }
     }
     
+    public IReadOnlyList<UserTask> GetAllTasks() => _tasks.AsReadOnly();   
 }

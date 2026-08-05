@@ -11,6 +11,9 @@ public class TaskService(TaskRepository taskRepository, MapperTaskFromDto mapper
     
     public Result<Guid> Create(CreateTaskDto createTaskDto)
     {
+        if (createTaskDto is null)
+            return Result<Guid>.Failure(new Error("Validation", "Request cannot be null"));
+        
         var results = _mapperTaskFromDto.Map((createTaskDto));
         if (results.IsFailure) return Result<Guid>.Failure(results.Error);
         
@@ -24,7 +27,7 @@ public class TaskService(TaskRepository taskRepository, MapperTaskFromDto mapper
 
         var task = _taskRepository.GetTaskById(deleteTaskDto.id);
         if (task is null)
-            return Result.Failure(new Error("NotFounded","Task:" +deleteTaskDto.id.ToString()));
+            return Result.Failure(new Error("NotFounded","Task ID isn't correct"));
 
         _taskRepository.Delete(deleteTaskDto.id);
         return Result.Success();

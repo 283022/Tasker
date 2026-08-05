@@ -26,5 +26,6 @@ public class UserRepository
         return _users.Any(user => user.Email.Value == email);
     }
     
+    public IReadOnlyList<User> GetAllUsers() => _users.AsReadOnly();
     
 }

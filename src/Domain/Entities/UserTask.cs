@@ -11,6 +11,7 @@ public class UserTask
     public static Result<UserTask> Create(string Name, Guid createByUserId)
     {
         if (string.IsNullOrEmpty(Name)) return new Error("Validation", "Name cannot be null or empty");
+        if (Name.Trim() == "") return new Error("Validation", "Name cannot be null or empty");
         if (createByUserId.Equals(Guid.Empty)) return new Error("Validation", "CreateByUserId cannot be empty");
         
         return new UserTask(Name, createByUserId);
