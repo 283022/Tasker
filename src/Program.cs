@@ -12,7 +12,6 @@ using src.UnitOfWork;
 var builder = WebApplication.CreateBuilder(args);
 
 
-builder.Services.AddSingleton<UserRepository>();
 builder.Services.AddOpenApi();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(JwtBearerDefaults.AuthenticationScheme,options =>
 {
