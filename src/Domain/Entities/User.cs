@@ -4,6 +4,10 @@ namespace src.Domain.Entities;
 
 public class User
 {
+    private User()
+    {
+        
+    }
     private User(string name, Email email, Password password)
     {
         Name = name;
@@ -19,8 +23,8 @@ public class User
         return new User(Name, Email, Password);
     }
     
-    public Guid ID { get;  } = Guid.NewGuid();
-    public string Name { get; set; } 
-    public Email Email { get; set; }
-    public Password Password { get; set; } 
+    public Guid Id { get; private set; } 
+    public string Name { get;private set; } 
+    public Email Email { get; private set; }
+    public Password Password { get; private set; } 
 }

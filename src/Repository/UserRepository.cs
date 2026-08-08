@@ -1,31 +1,50 @@
-﻿using src.Domain.Entities;
+﻿using Microsoft.EntityFrameworkCore;
+using src.Domain.Entities;
+using src.Db;
 
 namespace src;
 
-public class UserRepository
+public class UserRepository : IUserRepository
 {
-    private List<User> _users = [];
+    private readonly ApplicationContext _context;
 
-    public User? GetUserByEmail(string email)
+    public UserRepository(ApplicationContext context)
     {
-        return _users.FirstOrDefault(user => user.Email.Value == email);
+        _context = context;
     }
 
-    public void CreateUser(User user)
+    public  User? GetUserByEmail(string email)
     {
-        _users.Add(user);
+        return  _context.Users
+            .FirstOrDefault(user => user.Email.Value == email);
     }
 
-    public void DeleteUser(User user)
+    public void Add(User user)
     {
-        _users.Remove(user);
+        _context.Users.Add(user);
+    }
+
+    public void Delete(User user)
+    {
+        _context.Users.Remove(user);
     }
 
     public bool UserExists(string email)
     {
-        return _users.Any(user => user.Email.Value == email);
+        return _context.Users
+            .Any(user => user.Email.Value == email);
     }
     
-    public IReadOnlyList<User> GetAllUsers() => _users.AsReadOnly();
-    
+    public  IReadOnlyList<User> GetAllUsers()
+    {
+        return  _context.Users
+            .AsNoTracking()
+            .ToList();
+    }
+
+    public User? GetUserById(Guid id)
+    {
+        return  _context.Users
+            .FirstOrDefault(u => u.Id == id);
+    }
 }

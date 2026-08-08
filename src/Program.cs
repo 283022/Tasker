@@ -4,14 +4,15 @@ using src.Auth;
 using src.Mappers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using src.Db;
+using src.UnitOfWork;
 
 var builder = WebApplication.CreateBuilder(args);
 
 
 builder.Services.AddSingleton<UserRepository>();
-
-
 builder.Services.AddOpenApi();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(JwtBearerDefaults.AuthenticationScheme,options =>
 {
@@ -39,10 +40,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
 });
 
 
-builder.Services.AddSingleton<TaskRepository>();
-builder.Services.AddSingleton<UserRepository>();
+builder.Services.AddScoped<IUserTaskRepository, UserTaskRepository>();
+builder.Services.AddScoped<IUserRepository,UserRepository>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWorkEFcore>();
+
 builder.Services.AddScoped<MapperTaskFromDto>();
 builder.Services.AddScoped<MapperUserFromDto>();
+
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<IAuthorizationHandler,TasklHandlerByUser>();
@@ -55,6 +59,13 @@ builder.Services.AddAuthorization(options =>
         policy.AddRequirements(new SameAuthorRequirement());
     });
 });
+
+builder.Services.AddDbContext<ApplicationContext>(options =>
+{
+    options.UseNpgsql(builder.Configuration.GetConnectionString("ApplicationContext"));
+});
+
+
 
 builder.Services.AddSwaggerGen();
 var app = builder.Build();

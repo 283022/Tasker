@@ -5,6 +5,12 @@ namespace src.Domain.ValueObjects;
 
 public class Email : ValueObject
 {
+    //for ef core
+    private Email()
+    {
+        
+    } 
+    
     public string Value { get; private set; }
 
     private Email(string email)

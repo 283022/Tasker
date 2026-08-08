@@ -3,12 +3,13 @@ using src.Domain;
 using src.Domain.Entities;
 using src.Domain.ValueObjects;
 using src.Mappers;
+using src.UnitOfWork;
 
 namespace src;
 
-public class UserService(UserRepository userRepository,MapperUserFromDto mapper)
+public class UserService(IUnitOfWork unitOfWork,MapperUserFromDto mapper)
 {
-    private readonly UserRepository _userRepository = userRepository;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
     public Result Register(CreateUserDto request)
     {
@@ -19,14 +20,16 @@ public class UserService(UserRepository userRepository,MapperUserFromDto mapper)
         
         var user =  mapper.Map(request);
         if (user.IsFailure) return Result.Failure(user.Error);
+        if (user.Value is null) return Result.Failure(new Error("User isn't exist", "User doesn't exist"));
         
-        if (_userRepository.UserExists(user.Value.Email.Value))
+        if (_unitOfWork.UserRepository.UserExists(user.Value.Email.Value))
             return Result.Failure(
                 new Error("Conflict",
                     $"User with email {request.Email} already exists"));
         
         
-        _userRepository.CreateUser(user.Value);
+        _unitOfWork.UserRepository.Add(user.Value);
+        _unitOfWork.SaveChanges();
         
         return Result.Success();
         
@@ -34,7 +37,7 @@ public class UserService(UserRepository userRepository,MapperUserFromDto mapper)
 
     private bool UserExists(string email)
     {
-        return _userRepository.UserExists(email);
+        return _unitOfWork.UserRepository.UserExists(email);
     }
 
     public Result<User> Userlogin(LoginUserDto request)
@@ -46,7 +49,7 @@ public class UserService(UserRepository userRepository,MapperUserFromDto mapper)
         {
             return new Error("Validation", email.Value.Value + " isn't valid");
         }
-        var user = _userRepository.GetUserByEmail(email.Value.Value);
+        var user = _unitOfWork.UserRepository.GetUserByEmail(email.Value.Value);
 
         if (user is null)
         {
@@ -66,11 +69,11 @@ public class UserService(UserRepository userRepository,MapperUserFromDto mapper)
         if (request is null)
             return Result<Guid>.Failure(new Error("Validation","Request cannot be null"));
 
-        var user = _userRepository.GetUserByEmail(request.Email);
+        var user = _unitOfWork.UserRepository.GetUserByEmail(request.Email);
         if (user is null)
             return Result<Guid>.Failure(new Error("NotFound", request.Email + "not found"));
 
-        return Result<Guid>.Success(user.ID);
+        return Result<Guid>.Success(user.Id);
     }
     
 }

@@ -2,6 +2,13 @@
 
 public class Password : ValueObject
 {
+    
+    //for ef core
+    private Password()
+    {
+        
+    } 
+    
     public string Value { get; private set; }
 
     private Password(string password)

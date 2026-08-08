@@ -54,7 +54,7 @@ public static class Endpoints
             var user = loginResult.Value;
     
             // Генерация JWT
-            var claims = new List<Claim> { new Claim("id", user.ID.ToString()) };
+            var claims = new List<Claim> { new Claim("id", user.Id.ToString()) };
             var jwt = new JwtSecurityToken(
                 claims: claims,
                 expires: DateTime.UtcNow.AddMinutes(2),

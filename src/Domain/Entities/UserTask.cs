@@ -2,6 +2,11 @@
 
 public class UserTask
 {
+    private UserTask()
+    {
+        
+    }
+    
     private UserTask(string name, Guid createByUserId)
     {
         Name = name;
@@ -18,7 +23,7 @@ public class UserTask
         
     }
     
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; } 
     public string Name { get; set; } 
     public Guid CreateByUserID { get; init; } 
 }

@@ -1,12 +1,13 @@
 ﻿using src.Domain;
 using src.Domain.Entities;
 using src.Mappers;
+using src.UnitOfWork;
 
 namespace src;
 
-public class TaskService(TaskRepository taskRepository, MapperTaskFromDto mapper)
+public class TaskService(IUnitOfWork unitOfWork, MapperTaskFromDto mapper)
 {
-    private readonly TaskRepository _taskRepository = taskRepository;
+    private readonly IUnitOfWork _unitOfWork = unitOfWork;
     private readonly MapperTaskFromDto _mapperTaskFromDto = mapper;
     
     public Result<Guid> Create(CreateTaskDto createTaskDto)
@@ -17,20 +18,36 @@ public class TaskService(TaskRepository taskRepository, MapperTaskFromDto mapper
         var results = _mapperTaskFromDto.Map((createTaskDto));
         if (results.IsFailure) return Result<Guid>.Failure(results.Error);
         
-        return _taskRepository.Create(results.Value);
+        _unitOfWork.UserTaskRepository.Add(results.Value);
+        _unitOfWork.SaveChanges();
+        
+        return results.Value.Id;
     }
 
     public Result Delete(DeleteTaskDto deleteTaskDto)
     {
         if (deleteTaskDto is null)
             return Result.Failure(new Error("Validation","Request cannot be null"));
+        _unitOfWork.BeginTransaction();
 
-        var task = _taskRepository.GetTaskById(deleteTaskDto.id);
-        if (task is null)
-            return Result.Failure(new Error("NotFounded","Task ID isn't correct"));
-
-        _taskRepository.Delete(deleteTaskDto.id);
-        return Result.Success();
+        try
+        {
+            var task = _unitOfWork.UserTaskRepository.GetTaskById(deleteTaskDto.id);
+            if (task is null)
+                return Result.Failure(new Error("NotFounded","Task ID isn't correct"));
+            
+            _unitOfWork.UserTaskRepository.Delete(deleteTaskDto.id);
+            _unitOfWork.SaveChanges();
+            _unitOfWork.Commit();
+            return Result.Success();
+        }
+        catch (Exception e)
+        {
+            _unitOfWork.Rollback();
+            return Result.Failure(new Error("Server Error", "Error occured" + e.Message ));
+        }
+        
+        
     }
 
     public Result<UserTask> GetTask(Guid id)
@@ -38,7 +55,7 @@ public class TaskService(TaskRepository taskRepository, MapperTaskFromDto mapper
         if (id == Guid.Empty)
             return Result<UserTask>.Failure(new Error("Validation","Task ID cannot be empty"));
 
-        var task = _taskRepository.GetTaskById(id);
+        var task = _unitOfWork.UserTaskRepository.GetTaskById(id);
         if (task is null)
             return Result<UserTask>.Failure(new Error("NotFounded" ,"Task:" + id.ToString()));
 
