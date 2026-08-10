@@ -28,8 +28,13 @@ public class UserTaskRepository : IUserTaskRepository
     public IEnumerable<UserTask> GetTasksByUser(Guid userId)
     {
         return  _context.Tasks
-            .Where(t => t.CreateByUserID == userId)
+            .Where(t => t.CreateByUserID == userId || t.AssignedToUserID == userId)
             .ToList();
+    }
+
+    public IEnumerable<UserTask> GetTasksByTeamId(Guid teamId)
+    {
+        return _context.Tasks.Where(t => t.TeamID == teamId).ToList();
     }
     
     public void Delete(Guid taskId)
@@ -66,4 +71,37 @@ public class UserTaskRepository : IUserTaskRepository
             .AsNoTracking()
             .ToList();
     }
+    
+    
+    public bool CanUserManageTask(Guid taskId, Guid userId)
+    {
+        // 1. Получаем задачу с информацией о команде
+        var task = _context.Tasks
+            .FirstOrDefault(t => t.Id == taskId);
+    
+        if (task is null)
+            return false;
+    
+        // 2. Если пользователь — исполнитель задачи
+        if (task.AssignedToUserID == userId)
+            return true;
+    
+        // 3. Если у задачи есть команда и пользователь — админ этой команды
+        if (task.TeamID.HasValue)
+        {
+            var isAdmin = _context.TeamMembers
+                .Any(tm => tm.TeamId == task.TeamID.Value && 
+                           tm.UserId == userId && 
+                           tm.IsAdmin);
+            if (isAdmin)
+                return true;
+        }
+    
+        // 4. Если пользователь — создатель задачи
+        if (task.CreateByUserID == userId)
+            return true;
+    
+        return false;
+    }
+    
 }

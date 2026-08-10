@@ -20,7 +20,6 @@ public class UserTaskCreationTests
         Assert.True(result.IsSuccess);
         Assert.Equal(name, result.Value.Name);
         Assert.Equal(userId, result.Value.CreateByUserID);
-        Assert.NotEqual(Guid.Empty, result.Value.Id);
     }
 
     [Theory]

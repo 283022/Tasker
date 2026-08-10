@@ -1,9 +1,6 @@
 using System.Text;
 using src;
-using src.Auth;
-using src.Mappers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using src.Db;
@@ -21,7 +18,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         ValidateAudience = false,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("qwertyuiop[]asdfghjkl;'zxcvbnm,./"))
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtBearer:TokenSecurity"])),
     };
 
     options.Events = new JwtBearerEvents
@@ -43,21 +40,10 @@ builder.Services.AddScoped<IUserTaskRepository, UserTaskRepository>();
 builder.Services.AddScoped<IUserRepository,UserRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWorkEFcore>();
 
-builder.Services.AddScoped<MapperTaskFromDto>();
-builder.Services.AddScoped<MapperUserFromDto>();
 
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<TaskService>();
-builder.Services.AddScoped<IAuthorizationHandler,TasklHandlerByUser>();
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy(AllNameOfPolicy.SameAuthorRequirement, policy =>
-    {
-        policy.RequireAuthenticatedUser();
-        policy.AddRequirements(new SameAuthorRequirement());
-    });
-});
 
 builder.Services.AddDbContext<ApplicationContext>(options =>
 {

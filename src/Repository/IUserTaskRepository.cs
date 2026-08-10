@@ -11,4 +11,6 @@ public interface IUserTaskRepository
     public void Add(UserTask task);
     public void Update(Guid taskId, string newName);
     public IReadOnlyList<UserTask> GetAllTasks();
+    public bool CanUserManageTask(Guid taskId, Guid userId);
+    public IEnumerable<UserTask> GetTasksByTeamId(Guid teamId);
 }

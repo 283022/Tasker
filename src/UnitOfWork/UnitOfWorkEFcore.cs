@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore.Storage;
 using src.Db;
+using src.Repository;
 
 namespace src.UnitOfWork;
 
@@ -8,14 +9,19 @@ public class UnitOfWorkEFcore: IUnitOfWork
     private ApplicationContext  _context;
     private IDbContextTransaction? _transaction;
     
-    public UnitOfWorkEFcore(ApplicationContext context, IUserRepository userRepository, IUserTaskRepository userTaskRepository)
+    public UnitOfWorkEFcore(ApplicationContext context, IUserRepository userRepository, IUserTaskRepository userTaskRepository, ITeamRepository teamRepository, ITeamMemberRepository teamMemberRepository)
     {
         _context = context;
         UserRepository = userRepository;
         UserTaskRepository = userTaskRepository;
+        TeamRepository = teamRepository;
+        TeamMemberRepository = teamMemberRepository;
     }
     public IUserRepository UserRepository { get; }
     public IUserTaskRepository UserTaskRepository { get; }
+    public ITeamRepository TeamRepository { get;  }
+    public ITeamMemberRepository TeamMemberRepository { get; }
+    
     public void SaveChanges()
     {
         _context.SaveChanges();
