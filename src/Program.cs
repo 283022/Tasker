@@ -1,48 +1,32 @@
-using System.Text;
-using src;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
+using src;
+using src.Auth;
 using src.Db;
+using src.Repository;
 using src.UnitOfWork;
 
 var builder = WebApplication.CreateBuilder(args);
 
 
 builder.Services.AddOpenApi();
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(JwtBearerDefaults.AuthenticationScheme,options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuer = false,
-        ValidateAudience = false,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtBearer:TokenSecurity"])),
-    };
-
-    options.Events = new JwtBearerEvents
-    {
-        OnMessageReceived = context =>
-        {
-            if (context.Request.Cookies.TryGetValue("zxc", out var token))
-            {
-                context.Token = token;
-            }
-
-            return Task.CompletedTask;
-        }
-    };
-});
+builder.Services.AddSwaggerGen();
 
 
+builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddAuthorization();
+
+builder.Services.AddScoped<ITeamRepository, TeamRepository>();
+builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserTaskRepository, UserTaskRepository>();
-builder.Services.AddScoped<IUserRepository,UserRepository>();
+
+
 builder.Services.AddScoped<IUnitOfWork, UnitOfWorkEFcore>();
 
 
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<TaskService>();
+builder.Services.AddScoped<TeamService>();
 
 
 builder.Services.AddDbContext<ApplicationContext>(options =>
@@ -51,11 +35,8 @@ builder.Services.AddDbContext<ApplicationContext>(options =>
 });
 
 
-
-builder.Services.AddSwaggerGen();
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();

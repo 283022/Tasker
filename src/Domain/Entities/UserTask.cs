@@ -4,9 +4,9 @@ public class UserTask
 {
     public Guid? AssignedToUserID { get; private set; }
     public Guid? TeamID { get; private set; }
-    public Guid Id { get; }
-    public string Name { get; set; }
-    public Guid CreateByUserID { get; init; }
+    public Guid Id { get; private set; }
+    public string Name { get; private set; }
+    public Guid CreateByUserID { get; private set; }
     public bool IsCompleted { get; private set; }
 
     private UserTask() { }
@@ -20,9 +20,19 @@ public class UserTask
         IsCompleted = false;
     }
 
-    public void AssignTo(Guid userId)
+    public Result ChangeName(string newName)
     {
+        if (string.IsNullOrEmpty(Name)) return new Error("Validation", "Name cannot be null or empty");
+        if (Name.Trim() == "") return new Error("Validation", "Name cannot be null or empty");
+        Name = newName;
+        return Result.Success();
+    }
+    public Result AssignTo(Guid userId)
+    {
+        if(userId.Equals(Guid.Empty))
+            return new Error("Validation", "UserId cannot be empty");
         AssignedToUserID = userId;
+        return Result.Success();
     }
     
     public static Result<UserTask> Create(string Name, Guid createByUserId, Guid? teamId = null,

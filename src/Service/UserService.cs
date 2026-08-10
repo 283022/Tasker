@@ -1,6 +1,4 @@
-﻿using System.Runtime.InteropServices.Marshalling;
-using Microsoft.AspNetCore.Mvc;
-using src.Domain;
+﻿using src.Domain;
 using src.Domain.Entities;
 using src.Domain.ValueObjects;
 using src.UnitOfWork;
@@ -55,7 +53,7 @@ public class UserService(IUnitOfWork unitOfWork)
         var email = Email.Create(request.Email);
         if (email.IsFailure)
         {
-            return new Error("Validation", email.Value.Value + " isn't valid");
+            return new Error("Validation", email.Error.Message + " isn't valid");
         }
         var user = _unitOfWork.UserRepository.GetUserByEmail(email.Value.Value);
 

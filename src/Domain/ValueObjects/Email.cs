@@ -1,6 +1,4 @@
-﻿using System.Text.RegularExpressions;
-using src.Domain.ValueObjects;
-
+﻿
 namespace src.Domain.ValueObjects;
 
 public class Email : ValueObject

@@ -60,7 +60,7 @@ public class UserTaskRepository : IUserTaskRepository
             
         if (task != null)
         {
-            task.Name = newName;
+            task.ChangeName(newName);
             _context.Tasks.Update(task);
         }
     }

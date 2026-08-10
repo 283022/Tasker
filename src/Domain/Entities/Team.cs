@@ -17,10 +17,7 @@ public class Team
     {
         if  (string.IsNullOrWhiteSpace(name))
             return new Error("Validation", "Name cannot be null or empty");
-        
-        if (name.Trim() == " ")
-            return new Error("Validation", "Name cannot be empty");
-        
+       
         return new Team(name);
     }
     

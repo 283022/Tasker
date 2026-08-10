@@ -4,7 +4,7 @@ using src.Repository;
 
 namespace src.UnitOfWork;
 
-public class UnitOfWorkEFcore: IUnitOfWork
+public class UnitOfWorkEFcore: IUnitOfWork, IDisposable
 {
     private ApplicationContext  _context;
     private IDbContextTransaction? _transaction;
@@ -35,10 +35,20 @@ public class UnitOfWorkEFcore: IUnitOfWork
     public void Commit()
     {
         _transaction?.Commit();
+        _transaction?.Dispose();
+        _transaction = null;
     }
 
     public void Rollback()
     {
         _transaction?.Rollback();
+        _transaction?.Dispose();
+        _transaction = null;
+    }
+
+    public void Dispose()
+    {
+        _transaction?.Dispose();
+        _context.Dispose();
     }
 }

@@ -12,6 +12,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.HasKey(x => x.Id)
             .HasName("PK_User");
 
+        builder.Property(p => p.Id).ValueGeneratedOnAdd().HasDefaultValueSql("gen_random_uuid()");
+        
         // Настройка Complex Property для Email
         builder.ComplexProperty(x => x.Email, email =>
         {

@@ -88,11 +88,11 @@ public class TaskService(IUnitOfWork unitOfWork)
     {
         if (deleteTaskDto is null)
             return Result.Failure(new Error("Validation", "Request cannot be null"));
-        _unitOfWork.BeginTransaction();
+        
 
         if (userid == Guid.Empty)
             return new Error("Validation", "Id cannot be empty");
-
+        _unitOfWork.BeginTransaction();
         try
         {
             var task = _unitOfWork.UserTaskRepository.GetTaskById(deleteTaskDto.id);
@@ -157,11 +157,11 @@ public class TaskService(IUnitOfWork unitOfWork)
             return Result.Failure(new Error("NotFound", $"Task '{results.id}' not found"));
 
         // 5. Проверка прав (может ли пользователь изменять эту задачу)
-        if (!_unitOfWork.UserTaskRepository.CanUserManageTask(currentUserId, results.id))
+        if (!_unitOfWork.UserTaskRepository.CanUserManageTask(results.id, currentUserId))
             return Result.Failure(new Error("Forbidden", "You don't have permission to rename this task"));
 
         // 6. Меняем имя (используем метод сущности, если есть)
-        task.Name = results.Name; // Или task.Name = results.NewName;
+        task.ChangeName(results.Name); // Или task.Name = results.NewName;
 
         // 7. Сохраняем
         _unitOfWork.SaveChanges();

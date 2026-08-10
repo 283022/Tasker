@@ -12,6 +12,7 @@ public class UserTaskConfiguration : IEntityTypeConfiguration<UserTask>
         builder.HasKey(x => x.Id)
             .HasName("PK_UserTask");
 
+        builder.Property(p => p.Id).ValueGeneratedOnAdd().HasDefaultValueSql("gen_random_uuid()");
         // Свойство Name
         builder.Property(x => x.Name)
             .IsRequired()

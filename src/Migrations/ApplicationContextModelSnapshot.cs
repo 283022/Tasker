@@ -23,11 +23,58 @@ namespace src.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("src.Domain.Entities.Team", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("Name");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Teams", (string)null);
+                });
+
+            modelBuilder.Entity("src.Domain.Entities.TeamMember", b =>
+                {
+                    b.Property<Guid>("TeamId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsAdmin")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("TeamId1")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId1")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("TeamId", "UserId")
+                        .HasName("PK_TeamMember");
+
+                    b.HasIndex("TeamId1");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("UserId1");
+
+                    b.ToTable("TeamMembers", (string)null);
+                });
+
             modelBuilder.Entity("src.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -72,16 +119,26 @@ namespace src.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasDefaultValueSql("gen_random_uuid()");
+
+                    b.Property<Guid?>("AssignedToUserID")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("CreateByUserID")
                         .HasColumnType("uuid");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
                         .HasColumnName("Name_Value");
+
+                    b.Property<Guid?>("TeamID")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id")
                         .HasName("PK_UserTask");
@@ -91,6 +148,37 @@ namespace src.Migrations
                     b.ToTable("UserTasks", (string)null);
                 });
 
+            modelBuilder.Entity("src.Domain.Entities.TeamMember", b =>
+                {
+                    b.HasOne("src.Domain.Entities.Team", null)
+                        .WithMany()
+                        .HasForeignKey("TeamId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("src.Domain.Entities.Team", "Team")
+                        .WithMany("Members")
+                        .HasForeignKey("TeamId1")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("src.Domain.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("src.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId1")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Team");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("src.Domain.Entities.UserTask", b =>
                 {
                     b.HasOne("src.Domain.Entities.User", null)
@@ -98,6 +186,11 @@ namespace src.Migrations
                         .HasForeignKey("CreateByUserID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("src.Domain.Entities.Team", b =>
+                {
+                    b.Navigation("Members");
                 });
 #pragma warning restore 612, 618
         }
