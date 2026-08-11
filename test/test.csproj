@@ -9,7 +9,14 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="coverlet.collector" Version="6.0.4" />
+        <PackageReference Include="coverlet.collector" Version="10.0.1">
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+          <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
         <PackageReference Include="Moq" Version="4.20.72" />
@@ -26,7 +33,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Integration-tests\" />
       <Folder Include="Unit-tests\" />
     </ItemGroup>
 

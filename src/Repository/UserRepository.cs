@@ -21,7 +21,7 @@ public class UserRepository : IUserRepository
 
     public void Add(User user)
     {
-        _context.Users.Add(user);
+        _context.Users.Add(user); 
     }
 
     public void Delete(User user)
