@@ -14,6 +14,11 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         builder.Property(p => p.Id).ValueGeneratedOnAdd().HasDefaultValueSql("gen_random_uuid()");
         
+        builder.HasMany<TeamMember>()
+            .WithOne(tm => tm.User)
+            .HasForeignKey(tm => tm.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+        
         // Настройка Complex Property для Email
         builder.ComplexProperty(x => x.Email, email =>
         {
@@ -22,7 +27,7 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
                 .HasColumnName("Email_Value")
                 .HasMaxLength(254);
         });
-
+        
         // Настройка Complex Property для Password
         builder.ComplexProperty(x => x.Password, password =>
         {

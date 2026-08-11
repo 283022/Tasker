@@ -89,9 +89,12 @@ public class TaskService(IUnitOfWork unitOfWork)
         if (deleteTaskDto is null)
             return Result.Failure(new Error("Validation", "Request cannot be null"));
         
-
         if (userid == Guid.Empty)
             return new Error("Validation", "Id cannot be empty");
+        
+        if (_unitOfWork.UserRepository.GetUserById(userid) is null)
+            return new Error("Validation", "User not found");
+        
         _unitOfWork.BeginTransaction();
         try
         {

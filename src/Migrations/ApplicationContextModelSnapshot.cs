@@ -51,20 +51,10 @@ namespace src.Migrations
                     b.Property<bool>("IsAdmin")
                         .HasColumnType("boolean");
 
-                    b.Property<Guid>("TeamId1")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("UserId1")
-                        .HasColumnType("uuid");
-
                     b.HasKey("TeamId", "UserId")
                         .HasName("PK_TeamMember");
 
-                    b.HasIndex("TeamId1");
-
                     b.HasIndex("UserId");
-
-                    b.HasIndex("UserId1");
 
                     b.ToTable("TeamMembers", (string)null);
                 });
@@ -150,27 +140,15 @@ namespace src.Migrations
 
             modelBuilder.Entity("src.Domain.Entities.TeamMember", b =>
                 {
-                    b.HasOne("src.Domain.Entities.Team", null)
-                        .WithMany()
-                        .HasForeignKey("TeamId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("src.Domain.Entities.Team", "Team")
                         .WithMany("Members")
-                        .HasForeignKey("TeamId1")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("src.Domain.Entities.User", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
+                        .HasForeignKey("TeamId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("src.Domain.Entities.User", "User")
                         .WithMany()
-                        .HasForeignKey("UserId1")
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
