@@ -13,71 +13,76 @@ public class UserTaskRepository : IUserTaskRepository
         _context = context;
     }
 
-    public bool IsThisUserAuthor(Guid userId, Guid taskId)
+    public async Task<bool> IsThisUserAuthorAsync(Guid userId, Guid taskId)
     {
-        return _context.Tasks
-            .Any(task => task.Id == taskId && task.CreateByUserID == userId);
+        return await _context.Tasks
+            .AnyAsync(task => task.Id == taskId && task.CreateByUserID == userId);
     }
     
-    public UserTask? GetTaskById(Guid taskId)
+    public async Task<UserTask?> GetTaskByIdAsync(Guid taskId)
     {
-        return _context.Tasks
-            .FirstOrDefault(t => t.Id == taskId);
+        return await _context.Tasks
+            .FirstOrDefaultAsync(t => t.Id == taskId);
     }
 
-    public IEnumerable<UserTask> GetTasksByUser(Guid userId)
+    public async Task<IEnumerable<UserTask>> GetTasksByUserAsync(Guid userId)
     {
-        return  _context.Tasks
+        return await _context.Tasks
             .Where(t => t.CreateByUserID == userId || t.AssignedToUserID == userId)
-            .ToList();
+            .ToListAsync();
     }
 
-    public IEnumerable<UserTask> GetTasksByTeamId(Guid teamId)
+    // Исправлено: возвращаемый тип теперь Task<IEnumerable<UserTask>>
+    public async Task<IEnumerable<UserTask>> GetTasksByTeamIdAsync(Guid teamId)
     {
-        return _context.Tasks.Where(t => t.TeamID == teamId).ToList();
+        return await _context.Tasks
+            .Where(t => t.TeamID == teamId)
+            .ToListAsync();
     }
     
-    public void Delete(Guid taskId)
+    public async Task DeleteTaskAsync(Guid taskId)
     {
-        var task =  _context.Tasks
-            .FirstOrDefault(t => t.Id == taskId);
+        var task = await _context.Tasks
+            .FirstOrDefaultAsync(t => t.Id == taskId);
             
         if (task != null)
         {
             _context.Tasks.Remove(task);
         }
+        // SaveChangesAsync вызывается в UnitOfWork
     }
 
-    public void Add(UserTask task)
+    public async Task AddTaskAsync(UserTask task)
     {
-         _context.Tasks.Add(task);
+        await _context.Tasks.AddAsync(task);
+        // SaveChangesAsync вызывается в UnitOfWork
     }
     
-    public void Update(Guid taskId, string newName)
+    public async Task UpdateTaskAsync(Guid taskId, string newName)
     {
-        var task =  _context.Tasks
-            .FirstOrDefault(t => t.Id == taskId);
+        var task = await _context.Tasks
+            .FirstOrDefaultAsync(t => t.Id == taskId);
             
         if (task != null)
         {
             task.ChangeName(newName);
             _context.Tasks.Update(task);
         }
+        // SaveChangesAsync вызывается в UnitOfWork
     }
     
-    public  IReadOnlyList<UserTask> GetAllTasks()
+    public async Task<IReadOnlyList<UserTask>> GetAllTasksAsync()
     {
-        return  _context.Tasks
+        return await _context.Tasks
             .AsNoTracking()
-            .ToList();
+            .ToListAsync();
     }
     
-    
-    public bool CanUserManageTask(Guid taskId, Guid userId)
+    public async Task<bool> CanUserManageTaskAsync(Guid taskId, Guid userId)
     {
         // 1. Получаем задачу с информацией о команде
-        var task = _context.Tasks
-            .FirstOrDefault(t => t.Id == taskId);
+        var task = await _context.Tasks
+            .FirstOrDefaultAsync(t => t.Id == taskId);
     
         if (task is null)
             return false;
@@ -89,10 +94,10 @@ public class UserTaskRepository : IUserTaskRepository
         // 3. Если у задачи есть команда и пользователь — админ этой команды
         if (task.TeamID.HasValue)
         {
-            var isAdmin = _context.TeamMembers
-                .Any(tm => tm.TeamId == task.TeamID.Value && 
-                           tm.UserId == userId && 
-                           tm.IsAdmin);
+            var isAdmin = await _context.TeamMembers
+                .AnyAsync(tm => tm.TeamId == task.TeamID.Value && 
+                                tm.UserId == userId && 
+                                tm.IsAdmin);
             if (isAdmin)
                 return true;
         }
@@ -103,5 +108,4 @@ public class UserTaskRepository : IUserTaskRepository
     
         return false;
     }
-    
 }

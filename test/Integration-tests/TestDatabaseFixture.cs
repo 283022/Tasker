@@ -3,7 +3,7 @@ using src.Db;
 
 namespace TestProject1.Integration_tests;
 
-public class TestDatabaseFixture : IDisposable
+public class TestDatabaseFixture : IDisposable, IAsyncDisposable
 {
     private const string ConnectionString =
         @"Host=localhost;Port=5432;Database=TestDb;Username=postgres;Password=darkrock4;Include Error Detail=true";
@@ -17,7 +17,6 @@ public class TestDatabaseFixture : IDisposable
         lock (_lock)
         {
             _context = CreateContext();
-            // Всегда пересоздаем базу при каждом запуске
             _context.Database.EnsureDeleted();
             _context.Database.EnsureCreated();
         }
@@ -42,8 +41,6 @@ public class TestDatabaseFixture : IDisposable
         try
         {
             using var context = CreateNewContext();
-            
-            // Полная очистка с правильным порядком
             context.Database.ExecuteSqlRaw(@"
                 DO $$ 
                 BEGIN
@@ -62,7 +59,6 @@ public class TestDatabaseFixture : IDisposable
         catch (Exception ex)
         {
             Console.WriteLine($"CleanDatabase error: {ex.Message}");
-            // Если ошибка - пересоздаем базу
             try
             {
                 _context.Database.EnsureDeleted();
@@ -73,6 +69,81 @@ public class TestDatabaseFixture : IDisposable
                 // Игнорируем
             }
         }
+    }
+
+    public async Task CleanDatabaseAsync()
+    {
+        try
+        {
+            await using var context = CreateNewContext();
+            await context.Database.ExecuteSqlRawAsync(@"
+                DO $$ 
+                BEGIN
+                    EXECUTE 'SET session_replication_role = replica';
+                    
+                    TRUNCATE TABLE ""UserTasks"" CASCADE;
+                    TRUNCATE TABLE ""TeamMembers"" CASCADE;
+                    TRUNCATE TABLE ""Tasks"" CASCADE;
+                    TRUNCATE TABLE ""Teams"" CASCADE;
+                    TRUNCATE TABLE ""Users"" CASCADE;
+                    
+                    EXECUTE 'SET session_replication_role = origin';
+                END $$;
+            ");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CleanDatabaseAsync error: {ex.Message}");
+            try
+            {
+                await _context.Database.EnsureDeletedAsync();
+                await _context.Database.EnsureCreatedAsync();
+            }
+            catch
+            {
+                // Игнорируем
+            }
+        }
+    }
+
+    // ✅ Вспомогательный метод для создания чистого контекста
+    public async Task<ApplicationContext> GetCleanContextAsync()
+    {
+        var context = CreateNewContext();
+        await CleanDatabaseAsync();
+        return context;
+    }
+
+    // ✅ Вспомогательный метод для создания UnitOfWork с новым контекстом
+    public async Task<(ApplicationContext Context, UnitOfWorkEFcoreTest UnitOfWork)> CreateCleanUnitOfWorkAsync()
+    {
+        var context = await GetCleanContextAsync();
+        var unitOfWork = new UnitOfWorkEFcoreTest(context);
+        return (context, unitOfWork);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (!_disposed)
+        {
+            lock (_lock)
+            {
+                try
+                {
+                    _context.Dispose();
+                }
+                catch
+                {
+                    // Игнорируем
+                }
+                finally
+                {
+                    _disposed = true;
+                }
+            }
+        }
+        GC.SuppressFinalize(this);
+        await Task.CompletedTask;
     }
 
     public void Dispose()

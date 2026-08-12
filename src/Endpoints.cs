@@ -7,23 +7,23 @@ public static class Endpoints
 {
     public static IEndpointRouteBuilder AddAllEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/auth/register",  (
+        app.MapPost("/auth/register", async (
             [FromBody] CreateUserDto request,
             [FromServices] UserService userService) =>
         {
-            var result = userService.Register(request);
+            var result = await userService.RegisterAsync(request);
             return result.IsFailure
                 ? Results.BadRequest(new { error = result.Error.Message })
                 : Results.Created();
         });
 
-        app.MapPost("/auth/login",  (
+        app.MapPost("/auth/login", async (
             [FromBody] LoginUserDto request,
             HttpContext context,
             [FromServices] UserService userService,
             [FromServices] TokenService tokenService) =>
         {
-            var loginResult = userService.Userlogin(request);
+            var loginResult = await userService.UserLoginAsync(request);
             if (loginResult.IsFailure)
                 return Results.Unauthorized();
 
@@ -35,8 +35,7 @@ public static class Endpoints
             return Results.Ok(new { message = "Login successful" });
         });
 
-
-        app.MapGet("/users/me",  (
+        app.MapGet("/users/me", async (
             HttpContext context,
             [FromServices] UserService userService,
             [FromServices] TokenService tokenService) =>
@@ -45,13 +44,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var user = userService.GetUserById(userIdResult.Value);
+            var user = await userService.GetUserByIdAsync(userIdResult.Value);
             return user.IsFailure
                 ? Results.BadRequest(new { error = user.Error.Message })
                 : Results.Ok(user.Value);
         }).RequireAuthorization();
 
-        app.MapDelete("/users/{id}",  (
+        app.MapDelete("/users/{id}", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] UserService userService,
@@ -61,14 +60,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var result = userService.DeleteUser(new DeleteUserDto(id), userIdResult.Value);
+            var result = await userService.DeleteUserAsync(new DeleteUserDto(id), userIdResult.Value);
             return result.IsFailure
                 ? Results.BadRequest(new { error = result.Error.Message })
                 : Results.Ok();
         }).RequireAuthorization();
 
-
-        app.MapGet("/tasks",  (
+        app.MapGet("/tasks", async (
             HttpContext context,
             [FromServices] TaskService taskService,
             [FromServices] TokenService tokenService) =>
@@ -77,13 +75,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var tasks = taskService.GetTasks(userIdResult.Value);
+            var tasks = await taskService.GetTasksAsync(userIdResult.Value);
             return tasks.IsFailure
                 ? Results.BadRequest(new { error = tasks.Error.Message })
                 : Results.Ok(tasks.Value);
         }).RequireAuthorization();
 
-        app.MapGet("/tasks/{id}",  (
+        app.MapGet("/tasks/{id}", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] TaskService taskService,
@@ -93,13 +91,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var task = taskService.GetTaskById(id, userIdResult.Value);
+            var task = await taskService.GetTaskByIdAsync(id, userIdResult.Value);
             return task.IsFailure
                 ? Results.BadRequest(new { error = task.Error.Message })
                 : Results.Ok(task.Value);
         }).RequireAuthorization();
 
-        app.MapPost("/tasks",  (
+        app.MapPost("/tasks", async (
             [FromBody] CreateTaskDto createTaskDto,
             HttpContext context,
             [FromServices] TaskService taskService,
@@ -109,13 +107,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var task = taskService.Create(createTaskDto, userIdResult.Value);
+            var task = await taskService.CreateAsync(createTaskDto, userIdResult.Value);
             return task.IsFailure
                 ? Results.BadRequest(new { error = task.Error.Message })
                 : Results.Ok(task.Value);
         }).RequireAuthorization();
 
-        app.MapPatch("/tasks/{id}/name",  (
+        app.MapPatch("/tasks/{id}/name", async (
             [FromRoute] Guid id,
             [FromBody] RenameTaskDto dto,
             HttpContext context,
@@ -126,13 +124,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var result = taskService.RenameTask(new RenameTaskDto(id, dto.Name), userIdResult.Value);
+            var result = await taskService.RenameTaskAsync(new RenameTaskDto(id, dto.Name), userIdResult.Value);
             return result.IsFailure
                 ? Results.BadRequest(new { error = result.Error.Message })
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapPatch("/tasks/{id}/assign",  (
+        app.MapPatch("/tasks/{id}/assign", async (
             [FromRoute] Guid id,
             [FromBody] AssignTaskDto dto,
             HttpContext context,
@@ -143,13 +141,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var result = taskService.AssignTask(new AssignTaskDto(id, dto.AssigneeToUserId), userIdResult.Value);
+            var result = await taskService.AssignTaskAsync(new AssignTaskDto(id, dto.AssigneeToUserId), userIdResult.Value);
             return result.IsFailure
                 ? Results.BadRequest(new { error = result.Error.Message })
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapDelete("/tasks/{id}",  (
+        app.MapDelete("/tasks/{id}", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] TaskService taskService,
@@ -159,14 +157,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var result = taskService.Delete(new DeleteTaskDto(id), userIdResult.Value);
+            var result = await taskService.DeleteAsync(new DeleteTaskDto(id), userIdResult.Value);
             return result.IsFailure
                 ? Results.BadRequest(new { error = result.Error.Message })
                 : Results.Ok();
         }).RequireAuthorization();
 
-
-        app.MapPost("/teams",  (
+        app.MapPost("/teams", async (
             [FromBody] CreateTeamDto createTeamDto,
             HttpContext context,
             [FromServices] TeamService teamService,
@@ -176,13 +173,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var result = teamService.Create(userIdResult.Value, createTeamDto);
+            var result = await teamService.CreateAsync(userIdResult.Value, createTeamDto);
             return result.IsFailure
                 ? Results.BadRequest(new { error = result.Error.Message })
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapGet("/teams",  (
+        app.MapGet("/teams", async (
             HttpContext context,
             [FromServices] TeamService teamService,
             [FromServices] TokenService tokenService) =>
@@ -191,13 +188,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var teams = teamService.GetAllTeamWhereUserMember(userIdResult.Value);
+            var teams = await teamService.GetAllTeamWhereUserMemberAsync(userIdResult.Value);
             return teams.IsFailure
                 ? Results.BadRequest(new { error = teams.Error.Message })
                 : Results.Ok(teams.Value);
         }).RequireAuthorization();
 
-        app.MapGet("/teams/{id}",  (
+        app.MapGet("/teams/{id}", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] TeamService teamService,
@@ -207,13 +204,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var team = teamService.GetAllTeamWithUsers(new GetTeamDto(id), userIdResult.Value);
+            var team = await teamService.GetAllTeamWithUsersAsync(new GetTeamDto(id), userIdResult.Value);
             return team.IsFailure
                 ? Results.BadRequest(new { error = team.Error.Message })
                 : Results.Ok(team.Value);
         }).RequireAuthorization();
 
-        app.MapDelete("/teams/{id}",  (
+        app.MapDelete("/teams/{id}", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] TeamService teamService,
@@ -223,13 +220,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var result = teamService.Delete(new DeleteTeamDto(id), userIdResult.Value);
+            var result = await teamService.DeleteAsync(new DeleteTeamDto(id), userIdResult.Value);
             return result.IsFailure
                 ? Results.BadRequest(new { error = result.Error.Message })
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapGet("/teams/{id}/members",  (
+        app.MapGet("/teams/{id}/members", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] TeamService teamService,
@@ -239,13 +236,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var members = teamService.GetAllTeamWithUsers(new GetTeamDto(id), userIdResult.Value);
+            var members = await teamService.GetAllTeamWithUsersAsync(new GetTeamDto(id), userIdResult.Value);
             return members.IsFailure
                 ? Results.BadRequest(new { error = members.Error.Message })
                 : Results.Ok(members.Value);
         }).RequireAuthorization();
 
-        app.MapPost("/teams/{id}/members",  (
+        app.MapPost("/teams/{id}/members", async (
             [FromRoute] Guid id,
             [FromBody] AddUserInTeamDto dto,
             HttpContext context,
@@ -256,13 +253,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var result = teamService.AddUser(dto, userIdResult.Value);
+            var result = await teamService.AddUserAsync(dto, userIdResult.Value);
             return result.IsFailure
                 ? Results.BadRequest(new { error = result.Error.Message })
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapDelete("/teams/{id}/members/{userId}",  (
+        app.MapDelete("/teams/{id}/members/{userId}", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromRoute] Guid userId,
@@ -273,13 +270,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var result = teamService.DeleteUser(new DeleteUserFromTeamDto(id, userId), userIdResult.Value);
+            var result = await teamService.DeleteUserAsync(new DeleteUserFromTeamDto(id, userId), userIdResult.Value);
             return result.IsFailure
                 ? Results.BadRequest(new { error = result.Error.Message })
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapPatch("/teams/{id}/members/{userId}/role",  (
+        app.MapPatch("/teams/{id}/members/{userId}/role", async (
             [FromRoute] Guid id,
             [FromRoute] Guid userId,
             [FromBody] UpdateTeamRoleDto dto,
@@ -291,13 +288,13 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var result = teamService.UpdateMemberRole(dto, userIdResult.Value);
+            var result = await teamService.UpdateMemberRoleAsync(dto, userIdResult.Value);
             return result.IsFailure
                 ? Results.BadRequest(new { error = result.Error.Message })
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapGet("/teams/{id}/tasks",  (
+        app.MapGet("/teams/{id}/tasks", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] TeamService teamService,
@@ -307,7 +304,7 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
 
-            var tasks = teamService.GetAllTasksTeam(new GetAllTeamTaskDto(id), userIdResult.Value);
+            var tasks = await teamService.GetAllTasksTeamAsync(new GetAllTeamTaskDto(id), userIdResult.Value);
             return tasks.IsFailure
                 ? Results.BadRequest(new { error = tasks.Error.Message })
                 : Results.Ok(tasks.Value);

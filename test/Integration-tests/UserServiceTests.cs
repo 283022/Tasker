@@ -1,10 +1,10 @@
-﻿using src;
+﻿using Microsoft.EntityFrameworkCore;
+using src;
 using src.Db;
 using src.Domain.Entities;
 using src.Domain.ValueObjects;
 
 namespace TestProject1.Integration_tests;
-
 
 public class UserServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
 {
@@ -15,28 +15,28 @@ public class UserServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
         _fixture = fixture;
     }
 
-    private User CreateAndSaveUser(ApplicationContext context, string name = "User", string email = null,
+    private async Task<User> CreateAndSaveUserAsync(ApplicationContext context, string name = "User", string email = null,
         string password = "Password123")
     {
         email ??= $"user_{Guid.NewGuid():N}@test.com";
         var user = User.Create(name, Email.Create(email).Value, Password.Create(password).Value).Value;
-        context.Users.Add(user);
-        context.SaveChanges();
+        await context.Users.AddAsync(user);
+        await context.SaveChangesAsync();
         return user;
     }
 
     [Fact]
-    public void Register_User_HappyPath()
+    public async Task Register_User_HappyPath()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var userService = new UserService(unitOfWork.UnitOfWork);
         var dto = new CreateUserDto("Username", "string231@gmail.com", "1234567890");
 
-        var result = userService.Register(dto);
+        var result = await userService.RegisterAsync(dto);
 
         Assert.True(result.IsSuccess);
-        var user = context.Users.FirstOrDefault(u => u.Email.Value == dto.Email);
+        var user = await context.Users.FirstOrDefaultAsync(u => u.Email.Value == dto.Email);
         Assert.NotNull(user);
         Assert.Equal(dto.Email, user.Email.Value);
         Assert.Equal(dto.Password, user.Password.Value);
@@ -56,7 +56,7 @@ public class UserServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     [InlineData("ValidName", "valid@email.com", "   ")]
     [InlineData("ValidName", "valid@email.com", "123")]
     [InlineData("ValidName", "valid@email.com", "1234567")]
-    public void Register_User_WithInvalidData_ReturnsValidationError(
+    public async Task Register_User_WithInvalidData_ReturnsValidationError(
         string name,
         string email,
         string password)
@@ -66,7 +66,7 @@ public class UserServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
         var userService = new UserService(unitOfWork.UnitOfWork);
 
         var dto = new CreateUserDto(name, email, password);
-        var result = userService.Register(dto);
+        var result = await userService.RegisterAsync(dto);
 
         Assert.True(result.IsFailure,
             $"Регистрация должна провалиться для Name='{name}', Email='{email}', Password='{password}'");
@@ -74,23 +74,23 @@ public class UserServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
 
         if (!string.IsNullOrEmpty(email) && email.Contains('@') && email.Contains('.'))
         {
-            var savedUser = context.Users.FirstOrDefault(u => u.Email.Value == email);
+            var savedUser = await context.Users.FirstOrDefaultAsync(u => u.Email.Value == email);
             Assert.Null(savedUser);
         }
     }
 
     [Fact]
-    public void Register_User_WithExistingEmail_ReturnsConflict()
+    public async Task Register_User_WithExistingEmail_ReturnsConflict()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var userService = new UserService(unitOfWork.UnitOfWork);
         var dto = new CreateUserDto("User", "existing@email.com", "ValidPass123");
 
-        var firstResult = userService.Register(dto);
+        var firstResult = await userService.RegisterAsync(dto);
         Assert.True(firstResult.IsSuccess);
 
-        var secondResult = userService.Register(dto);
+        var secondResult = await userService.RegisterAsync(dto);
 
         Assert.True(secondResult.IsFailure);
         Assert.Equal("Conflict", secondResult.Error.Errortype);
@@ -98,16 +98,16 @@ public class UserServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     }
 
     [Fact]
-    public void User_Login_HappyPath()
+    public async Task User_Login_HappyPath()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var userService = new UserService(unitOfWork.UnitOfWork);
 
-        var user = CreateAndSaveUser(context, "user", "valid@gmail.com", "1234567890");
+        var user = await CreateAndSaveUserAsync(context, "user", "valid@gmail.com", "1234567890");
         var dto = new LoginUserDto("valid@gmail.com", "1234567890");
 
-        var result = userService.Userlogin(dto);
+        var result = await userService.UserLoginAsync(dto);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
@@ -115,14 +115,14 @@ public class UserServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     }
 
     [Fact]
-    public void User_Login_UserNotFound_ReturnsFailure()
+    public async Task User_Login_UserNotFound_ReturnsFailure()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var userService = new UserService(unitOfWork.UnitOfWork);
         var dto = new LoginUserDto("notfound@gmail.com", "1234567890");
 
-        var result = userService.Userlogin(dto);
+        var result = await userService.UserLoginAsync(dto);
 
         Assert.True(result.IsFailure);
         Assert.Equal("UserNotFounded", result.Error.Errortype);
@@ -130,16 +130,16 @@ public class UserServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     }
 
     [Fact]
-    public void User_Login_PasswordIsIncorrect_ReturnsUnauthorized()
+    public async Task User_Login_PasswordIsIncorrect_ReturnsUnauthorized()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var userService = new UserService(unitOfWork.UnitOfWork);
 
-        var user = CreateAndSaveUser(context, "user", "valid@gmail.com", "1234567890");
+        var user = await CreateAndSaveUserAsync(context, "user", "valid@gmail.com", "1234567890");
         var dto = new LoginUserDto("valid@gmail.com", "wrongPassword");
 
-        var result = userService.Userlogin(dto);
+        var result = await userService.UserLoginAsync(dto);
 
         Assert.True(result.IsFailure);
         Assert.Equal("Unauthorized", result.Error.Errortype);
@@ -147,14 +147,14 @@ public class UserServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     }
 
     [Fact]
-    public void GetUserById_HappyPath()
+    public async Task GetUserById_HappyPath()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var userService = new UserService(unitOfWork.UnitOfWork);
 
-        var user = CreateAndSaveUser(context);
-        var result = userService.GetUserById(user.Id);
+        var user = await CreateAndSaveUserAsync(context);
+        var result = await userService.GetUserByIdAsync(user.Id);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(user.Id, result.Value.Id);
@@ -163,14 +163,14 @@ public class UserServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     }
 
     [Fact]
-    public void GetUserById_WhenUserNotFound_ReturnsFailure()
+    public async Task GetUserById_WhenUserNotFound_ReturnsFailure()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var userService = new UserService(unitOfWork.UnitOfWork);
 
         var nonExistentId = Guid.NewGuid();
-        var result = userService.GetUserById(nonExistentId);
+        var result = await userService.GetUserByIdAsync(nonExistentId);
 
         Assert.True(result.IsFailure);
         Assert.Equal("Validation", result.Error.Errortype);
@@ -178,76 +178,76 @@ public class UserServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     }
 
     [Fact]
-    public void DeleteUser_HappyPath()
+    public async Task DeleteUser_HappyPath()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var userService = new UserService(unitOfWork.UnitOfWork);
 
-        var user = CreateAndSaveUser(context);
-        var result = userService.DeleteUser(new DeleteUserDto(user.Id), user.Id);
+        var user = await CreateAndSaveUserAsync(context);
+        var result = await userService.DeleteUserAsync(new DeleteUserDto(user.Id), user.Id);
 
         Assert.True(result.IsSuccess);
-        var userAfter = context.Users.FirstOrDefault(u => u.Id == user.Id);
+        var userAfter = await context.Users.FirstOrDefaultAsync(u => u.Id == user.Id);
         Assert.Null(userAfter);
     }
 
     [Fact]
-    public void DeleteUser_WhenNotAuthorized_ReturnsFailure()
+    public async Task DeleteUser_WhenNotAuthorized_ReturnsFailure()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var userService = new UserService(unitOfWork.UnitOfWork);
 
-        var user = CreateAndSaveUser(context);
+        var user = await CreateAndSaveUserAsync(context);
         var anotherUserId = Guid.NewGuid();
-        var result = userService.DeleteUser(new DeleteUserDto(user.Id), anotherUserId);
+        var result = await userService.DeleteUserAsync(new DeleteUserDto(user.Id), anotherUserId);
 
         Assert.True(result.IsFailure);
         Assert.Equal("Authorization", result.Error.Errortype);
-        Assert.Contains("Cannot delete another user", result.Error.Message);
+        Assert.Contains("You cannot delete this user", result.Error.Message);
     }
 
     [Fact]
-    public void DeleteUser_WhenUserNotFound_ReturnsFailure()
+    public async Task DeleteUser_WhenUserNotFound_ReturnsFailure()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var userService = new UserService(unitOfWork.UnitOfWork);
 
         var nonExistentId = Guid.NewGuid();
-        var result = userService.DeleteUser(new DeleteUserDto(nonExistentId), nonExistentId);
+        var result = await userService.DeleteUserAsync(new DeleteUserDto(nonExistentId), nonExistentId);
 
         Assert.True(result.IsFailure);
         Assert.Equal("Validation", result.Error.Errortype);
-        Assert.Contains("User is not founded", result.Error.Message);
+        Assert.Contains("User not found", result.Error.Message);
     }
 
     [Fact]
-    public void GetUserId_HappyPath()
+    public async Task GetUserId_HappyPath()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var userService = new UserService(unitOfWork.UnitOfWork);
 
-        var user = CreateAndSaveUser(context, "user", "valid@test.com", "validPassword12345");
+        var user = await CreateAndSaveUserAsync(context, "user", "valid@test.com", "validPassword12345");
         var dto = new LoginUserDto(user.Email.Value, "validPassword12345");
 
-        var result = userService.GetUserId(dto);
+        var result = await userService.GetUserIdAsync(dto);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(user.Id, result.Value);
     }
 
     [Fact]
-    public void GetUserId_WhenUserNotFound_ReturnsFailure()
+    public async Task GetUserId_WhenUserNotFound_ReturnsFailure()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var userService = new UserService(unitOfWork.UnitOfWork);
 
         var dto = new LoginUserDto("notfound@gmail.com", "password");
-        var result = userService.GetUserId(dto);
+        var result = await userService.GetUserIdAsync(dto);
 
         Assert.True(result.IsFailure);
         Assert.Equal("NotFound", result.Error.Errortype);

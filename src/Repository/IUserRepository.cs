@@ -4,10 +4,10 @@ namespace src;
 
 public interface IUserRepository
 {
-    public User? GetUserByEmail(string email);
-    public void Add(User user);
-    public void Delete(User user);
-    public bool UserExists(string email);
-    public IReadOnlyList<User> GetAllUsers();
-    public User? GetUserById(Guid id);
+    Task<User?> GetUserByEmailAsync(string email);
+    Task AddUserAsync(User user);
+    Task DeleteUserAsync(User user);
+    Task<bool> UserExistsAsync(string email);
+    Task<IReadOnlyList<User>> GetAllUsersAsync();
+    Task<User?> GetUserByIdAsync(Guid id);
 }

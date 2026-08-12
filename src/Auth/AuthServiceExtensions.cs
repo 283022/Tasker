@@ -40,9 +40,28 @@ public static class AuthServiceExtensions
                 options.TokenValidationParameters = tokenValidationParameters;
                 options.Events = new JwtBearerEvents
                 {
-                    OnMessageReceived = JwtCookieEvents.OnMessageReceived,
-                    OnChallenge = JwtCookieEvents.OnChallenge,
-                    OnForbidden = JwtCookieEvents.OnForbidden
+                    OnMessageReceived = context =>
+                    {
+                        // Извлекаем токен из cookie
+                        if (context.Request.Cookies.TryGetValue(AuthConstants.AuthTokenCookieName, out var token))
+                        {
+                            context.Token = token;
+                        }
+                        return Task.CompletedTask;
+                    },
+                    OnChallenge = context =>
+                    {
+                        context.HandleResponse();
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        context.Response.ContentType = "application/json";
+                        return Task.CompletedTask;
+                    },
+                    OnForbidden = context =>
+                    {
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        context.Response.ContentType = "application/json";
+                        return Task.CompletedTask;
+                    }
                 };
             });
 

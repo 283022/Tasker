@@ -8,50 +8,56 @@ public class TeamRepository(ApplicationContext context) : ITeamRepository
 {
     private readonly ApplicationContext _context = context;
 
-    public void Add(Team team)
+    public async Task AddTeamAsync(Team team)
     {
-        _context.Teams.Add(team);
+        await _context.Teams.AddAsync(team);
+        // SaveChangesAsync вызывается в UnitOfWork
     }
 
-    public void Delete(Team team)
+    public async Task DeleteTeamAsync(Team team)
     {
         _context.Teams.Remove(team);
+        // SaveChangesAsync вызывается в UnitOfWork
     }
 
-    public IEnumerable<Team> GetAll()
+    public async Task<IEnumerable<Team>> GetAllTeamsAsync()
     {
-        return _context.Teams.AsNoTracking().ToList();
-    }
-
-    public IEnumerable<Team> GetByUserId(Guid userId)
-    {
-        return _context.Teams
-            .Where(t=>t.Members.Any(m=>m.UserId == userId))
+        return await _context.Teams
             .AsNoTracking()
-            .ToList();
+            .ToListAsync();
     }
 
-    public Team? GetTeamWithMembers(Guid teamId)
+    public async Task<IEnumerable<Team>> GetTeamsByUserIdAsync(Guid userId)
     {
-        return _context.Teams
+        return await _context.Teams
+            .Where(t => t.Members.Any(m => m.UserId == userId))
+            .AsNoTracking()
+            .ToListAsync();
+    }
+
+    public async Task<Team?> GetTeamWithMembersAsync(Guid teamId)
+    {
+        return await _context.Teams
             .Include(t => t.Members)
             .ThenInclude(m => m.User)
-            .FirstOrDefault(t => t.Id == teamId);
-        
+            .FirstOrDefaultAsync(t => t.Id == teamId);
     }
 
-    public Team? GetTeamById(Guid teamId)
+    public async Task<Team?> GetTeamByIdAsync(Guid teamId)
     {
-        return _context.Teams.FirstOrDefault(t => t.Id == teamId);
+        return await _context.Teams
+            .FirstOrDefaultAsync(t => t.Id == teamId);
     }
     
-    public bool IsUserAdminOfTeam(Guid userId, Guid teamId)
+    public async Task<bool> IsUserAdminOfTeamAsync(Guid userId, Guid teamId)
     {
-        return _context.TeamMembers.Any(m => m.UserId == userId && m.TeamId == teamId && m.IsAdmin == true);
+        return await _context.TeamMembers
+            .AnyAsync(m => m.UserId == userId && m.TeamId == teamId && m.IsAdmin == true);
     }
 
-    public bool IsUserInTeam(Guid userId, Guid teamId)
+    public async Task<bool> IsUserInTeamAsync(Guid userId, Guid teamId)
     {
-        return  _context.TeamMembers.Any(m => m.UserId == userId && m.TeamId == teamId);
+        return await _context.TeamMembers
+            .AnyAsync(m => m.UserId == userId && m.TeamId == teamId);
     }
 }

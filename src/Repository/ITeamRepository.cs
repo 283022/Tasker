@@ -4,12 +4,12 @@ namespace src.Repository;
 
 public interface ITeamRepository
 {
-    void Add(Team team);
-    void Delete(Team team);
-    IEnumerable<Team> GetAll();
-    IEnumerable<Team> GetByUserId(Guid userId);
-    Team? GetTeamWithMembers(Guid teamId);
-    bool IsUserAdminOfTeam(Guid userId, Guid teamId);
-    bool IsUserInTeam(Guid userId, Guid teamId);
-    public Team? GetTeamById(Guid teamId);
-}  
+    Task AddTeamAsync(Team team);
+    Task DeleteTeamAsync(Team team);
+    Task<IEnumerable<Team>> GetAllTeamsAsync();
+    Task<IEnumerable<Team>> GetTeamsByUserIdAsync(Guid userId);
+    Task<Team?> GetTeamWithMembersAsync(Guid teamId);
+    Task<Team?> GetTeamByIdAsync(Guid teamId);
+    Task<bool> IsUserAdminOfTeamAsync(Guid userId, Guid teamId);
+    Task<bool> IsUserInTeamAsync(Guid userId, Guid teamId);
+}

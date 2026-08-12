@@ -8,241 +8,249 @@ public class TeamService(IUnitOfWork uow)
 {
     private readonly IUnitOfWork _unitOfWork = uow;
 
-    public Result Create(Guid userId, CreateTeamDto createTeamDto)
+    public async Task<Result> CreateAsync(Guid userId, CreateTeamDto createTeamDto)
     {
         // 1. Валидация входных данных
         if (userId == Guid.Empty)
-            return new Error("Validation", "User Id cannot be empty");
+            return Result.Failure(new Error("Validation", "User Id cannot be empty"));
     
         if (createTeamDto is null || string.IsNullOrWhiteSpace(createTeamDto.Name))
-            return new Error("Validation", "Team name cannot be empty");
+            return Result.Failure(new Error("Validation", "Team name cannot be empty"));
 
         // 2. Создаем команду
         var teamResult = Team.Create(createTeamDto.Name);
         if (teamResult.IsFailure)
-            return teamResult.Error;
+            return Result.Failure(teamResult.Error);
 
         var team = teamResult.Value;
 
         // 3. Начинаем транзакцию
-        _unitOfWork.BeginTransaction();
+        await _unitOfWork.BeginTransactionAsync();
     
         try
         {
             // 4. Сохраняем команду
-            _unitOfWork.TeamRepository.Add(team);
-            _unitOfWork.SaveChanges(); // ← Здесь team.Id заполняется (если IDENTITY)
+            await _unitOfWork.TeamRepository.AddTeamAsync(team);
+            await _unitOfWork.SaveChangesAsync(); // ← Здесь team.Id заполняется (если IDENTITY)
 
             // 5. Создаем участника (админа)
             var teamMemberResult = TeamMember.Create(team.Id, userId, isAdmin: true);
             if (teamMemberResult.IsFailure)
             {
-                _unitOfWork.Rollback();
-                return teamMemberResult.Error;
+                await _unitOfWork.RollbackTransactionAsync();
+                return Result.Failure(teamMemberResult.Error);
             }
 
             var teamMember = teamMemberResult.Value;
-            _unitOfWork.TeamMemberRepository.Add(teamMember);
+            await _unitOfWork.TeamMemberRepository.AddTeamMemberAsync(teamMember);
         
             // 6. Сохраняем и фиксируем транзакцию
-            _unitOfWork.SaveChanges();
-            _unitOfWork.Commit();
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitTransactionAsync();
 
             return Result.Success();
         }
         catch (Exception ex)
         {
-            _unitOfWork.Rollback();
-            return new Error("Database", $"Failed to create team: {ex.Message}");
+            await _unitOfWork.RollbackTransactionAsync();
+            return Result.Failure(new Error("Database", $"Failed to create team: {ex.Message}"));
         }
     }
 
-    public Result Delete(DeleteTeamDto deleteTeamDto, Guid userId)
+    public async Task<Result> DeleteAsync(DeleteTeamDto deleteTeamDto, Guid userId)
     {
         if (userId == Guid.Empty)
-            return new Error("Validation", "User Id cannot be empty");
+            return Result.Failure(new Error("Validation", "User Id cannot be empty"));
     
         if (deleteTeamDto is null)
-            return new Error("Validation", "Request cannot be empty");
+            return Result.Failure(new Error("Validation", "Request cannot be empty"));
         
         if (deleteTeamDto.id == Guid.Empty)
-            return  new Error("Validation", "Team Id cannot be empty");
+            return Result.Failure(new Error("Validation", "Team Id cannot be empty"));
 
-        var results = _unitOfWork.TeamRepository.GetTeamById(deleteTeamDto.id);
-        if  (results is null)
-            return new Error("Validation", "Team not found");
+        var team = await _unitOfWork.TeamRepository.GetTeamByIdAsync(deleteTeamDto.id);
+        if (team is null)
+            return Result.Failure(new Error("Validation", "Team not found"));
         
-        var isUserAdminOfTeam = _unitOfWork.TeamRepository.IsUserAdminOfTeam(userId, deleteTeamDto.id);
-        if(!isUserAdminOfTeam)
-            return new Error("Validation", "User not admin of team");
+        var isUserAdminOfTeam = await _unitOfWork.TeamRepository.IsUserAdminOfTeamAsync(userId, deleteTeamDto.id);
+        if (!isUserAdminOfTeam)
+            return Result.Failure(new Error("Validation", "User not admin of team"));
         
-        _unitOfWork.TeamRepository.Delete(results);
-        _unitOfWork.SaveChanges();
+        await _unitOfWork.TeamRepository.DeleteTeamAsync(team);
+        await _unitOfWork.SaveChangesAsync();
         return Result.Success();
     }
 
-    public Result AddUser(AddUserInTeamDto addUserInTeamDto, Guid userId)
+    public async Task<Result> AddUserAsync(AddUserInTeamDto addUserInTeamDto, Guid userId)
     {
         if (userId == Guid.Empty)
-            return new Error("Validation", "User Id cannot be empty");
+            return Result.Failure(new Error("Validation", "User Id cannot be empty"));
     
         if (addUserInTeamDto is null)
-            return new Error("Validation", "Request cannot be empty");
+            return Result.Failure(new Error("Validation", "Request cannot be empty"));
         
         if (addUserInTeamDto.TeamId == Guid.Empty)
-            return  new Error("Validation", "Team Id cannot be empty");
+            return Result.Failure(new Error("Validation", "Team Id cannot be empty"));
         if (addUserInTeamDto.UserId == Guid.Empty)
-            return  new Error("Validation", "Team Id cannot be empty");
+            return Result.Failure(new Error("Validation", "User Id cannot be empty"));
 
-        var team = _unitOfWork.TeamRepository.GetTeamById(addUserInTeamDto.TeamId);
+        var team = await _unitOfWork.TeamRepository.GetTeamByIdAsync(addUserInTeamDto.TeamId);
         if (team is null)
-            return new Error("Validation", "Team not found");
-        var isUserAdminOfTeam = _unitOfWork.TeamRepository.IsUserAdminOfTeam(userId, team.Id);
-
-        if (!isUserAdminOfTeam)
-            return new Error("Validation", "User not admin of team");
+            return Result.Failure(new Error("Validation", "Team not found"));
         
-        var isUserInTeam = _unitOfWork.TeamRepository.IsUserInTeam(addUserInTeamDto.UserId, team.Id);
+        var isUserAdminOfTeam = await _unitOfWork.TeamRepository.IsUserAdminOfTeamAsync(userId, team.Id);
+        if (!isUserAdminOfTeam)
+            return Result.Failure(new Error("Validation", "User not admin of team"));
+        
+        var isUserInTeam = await _unitOfWork.TeamRepository.IsUserInTeamAsync(addUserInTeamDto.UserId, team.Id);
         if (isUserInTeam)
-            return new Error("Validation", "User already in the team");
+            return Result.Failure(new Error("Validation", "User already in the team"));
         
         var teamMember = TeamMember.Create(
             addUserInTeamDto.TeamId, addUserInTeamDto.UserId, addUserInTeamDto.IsAdmin);
         
-        if(teamMember.IsFailure)
-            return new Error("Database", $"Failed to add user: {teamMember.Error}");
-        _unitOfWork.TeamMemberRepository.Add(teamMember.Value);
-        _unitOfWork.SaveChanges();
+        if (teamMember.IsFailure)
+            return Result.Failure(new Error("Database", $"Failed to add user: {teamMember.Error}"));
+        
+        await _unitOfWork.TeamMemberRepository.AddTeamMemberAsync(teamMember.Value);
+        await _unitOfWork.SaveChangesAsync();
         return Result.Success();
     }
 
-    public Result DeleteUser(DeleteUserFromTeamDto  deleteUserFromTeamDto, Guid userId)
+    public async Task<Result> DeleteUserAsync(DeleteUserFromTeamDto deleteUserFromTeamDto, Guid userId)
     {
         if (userId == Guid.Empty)
-            return new Error("Validation", "User Id cannot be empty");
+            return Result.Failure(new Error("Validation", "User Id cannot be empty"));
     
         if (deleteUserFromTeamDto is null)
-            return new Error("Validation", "Request cannot be empty");
+            return Result.Failure(new Error("Validation", "Request cannot be empty"));
         
         if (deleteUserFromTeamDto.TeamId == Guid.Empty)
-            return  new Error("Validation", "Team Id cannot be empty");
+            return Result.Failure(new Error("Validation", "Team Id cannot be empty"));
         if (deleteUserFromTeamDto.UserId == Guid.Empty)
-            return  new Error("Validation", "Team Id cannot be empty");
+            return Result.Failure(new Error("Validation", "User Id cannot be empty"));
         
-        var team = _unitOfWork.TeamRepository.GetTeamById(deleteUserFromTeamDto.TeamId);
+        var team = await _unitOfWork.TeamRepository.GetTeamByIdAsync(deleteUserFromTeamDto.TeamId);
         if (team is null)
-            return new Error("Validation", "Team not found");
-        var isUserAdminOfTeam = _unitOfWork.TeamRepository.IsUserAdminOfTeam(userId, team.Id);
-
-        if (!isUserAdminOfTeam)
-            return new Error("Validation", "User not admin of team");
+            return Result.Failure(new Error("Validation", "Team not found"));
         
-        var isUserInTeam = _unitOfWork.TeamRepository.IsUserInTeam(deleteUserFromTeamDto.UserId, team.Id);
+        var isUserAdminOfTeam = await _unitOfWork.TeamRepository.IsUserAdminOfTeamAsync(userId, team.Id);
+        if (!isUserAdminOfTeam)
+            return Result.Failure(new Error("Validation", "User not admin of team"));
+        
+        var isUserInTeam = await _unitOfWork.TeamRepository.IsUserInTeamAsync(deleteUserFromTeamDto.UserId, team.Id);
         if (!isUserInTeam)
-            return new Error("Validation", "User not in the team");
+            return Result.Failure(new Error("Validation", "User not in the team"));
 
-        var teamMember = _unitOfWork.TeamMemberRepository.GetByTeamAndUser(
+        var teamMember = await _unitOfWork.TeamMemberRepository.GetByTeamAndUserAsync(
             deleteUserFromTeamDto.TeamId, deleteUserFromTeamDto.UserId);
         
         if (teamMember is null)
-            return new Error("Validation", "Team member not found");
+            return Result.Failure(new Error("Validation", "Team member not found"));
         
-        _unitOfWork.TeamMemberRepository.Delete(teamMember);
-        _unitOfWork.SaveChanges();
+        await _unitOfWork.TeamMemberRepository.DeleteTeamMemberAsync(teamMember);
+        await _unitOfWork.SaveChangesAsync();
         return Result.Success();
     }
 
-    public Result<IEnumerable<TeamMember>> GetAllTeamWhereUserMember(Guid userId)
+    public async Task<Result<IEnumerable<TeamMember>>> GetAllTeamWhereUserMemberAsync(Guid userId)
     {
         if (userId == Guid.Empty)
-            return new Error("Validation", "User Id cannot be empty");
-        var result = _unitOfWork.TeamMemberRepository.GetByUserId(userId);
+            return Result<IEnumerable<TeamMember>>.Failure(new Error("Validation", "User Id cannot be empty"));
+        
+        var result = await _unitOfWork.TeamMemberRepository.GetByUserIdAsync(userId);
         return Result<IEnumerable<TeamMember>>.Success(result);
     }
-    public Result<IEnumerable<UserTask>> GetAllTasksTeam(GetAllTeamTaskDto getAllTeamTaskDto, Guid userId)
+
+    public async Task<Result<IEnumerable<UserTask>>> GetAllTasksTeamAsync(GetAllTeamTaskDto getAllTeamTaskDto, Guid userId)
     {
         // 1. Валидация
         if (userId == Guid.Empty)
-            return new Error("Validation", "User Id cannot be empty");
+            return Result<IEnumerable<UserTask>>.Failure(new Error("Validation", "User Id cannot be empty"));
     
         if (getAllTeamTaskDto is null)
-            return new Error("Validation", "Request cannot be empty");
+            return Result<IEnumerable<UserTask>>.Failure(new Error("Validation", "Request cannot be empty"));
     
         if (getAllTeamTaskDto.TeamId == Guid.Empty)
-            return new Error("Validation", "Team Id cannot be empty");
+            return Result<IEnumerable<UserTask>>.Failure(new Error("Validation", "Team Id cannot be empty"));
     
         // 2. Проверка существования команды
-        var team = _unitOfWork.TeamRepository.GetTeamById(getAllTeamTaskDto.TeamId);
+        var team = await _unitOfWork.TeamRepository.GetTeamByIdAsync(getAllTeamTaskDto.TeamId);
         if (team is null)
-            return new Error("Validation", "Team not found");
+            return Result<IEnumerable<UserTask>>.Failure(new Error("Validation", "Team not found"));
     
         // 3. Проверка членства (достаточно быть участником)
-        if (!_unitOfWork.TeamMemberRepository.IsUserInTeam(getAllTeamTaskDto.TeamId, userId))
-            return new Error("Authorization", "User is not a member of this team");
+        var isUserInTeam = await _unitOfWork.TeamMemberRepository.IsUserInTeamAsync(getAllTeamTaskDto.TeamId, userId);
+        if (!isUserInTeam)
+            return Result<IEnumerable<UserTask>>.Failure(new Error("Authorization", "User is not a member of this team"));
     
         // 4. Получаем задачи
-        var tasks = _unitOfWork.UserTaskRepository.GetTasksByTeamId(getAllTeamTaskDto.TeamId);
+        var tasks = await _unitOfWork.UserTaskRepository.GetTasksByTeamIdAsync(getAllTeamTaskDto.TeamId);
     
         return Result<IEnumerable<UserTask>>.Success(tasks);
     }
 
-    public Result<ICollection<TeamMember>> GetAllTeamWithUsers(GetTeamDto dto, Guid currentUserId)
+    public async Task<Result<ICollection<TeamMember>>> GetAllTeamWithUsersAsync(GetTeamDto dto, Guid currentUserId)
     {
         // 1. Валидация
         if (dto == null)
-            return new Error("Validation", "Request cannot be empty");
+            return Result<ICollection<TeamMember>>.Failure(new Error("Validation", "Request cannot be empty"));
         
         if (dto.id == Guid.Empty)
-            return new Error("Validation", "Team Id cannot be empty");
+            return Result<ICollection<TeamMember>>.Failure(new Error("Validation", "Team Id cannot be empty"));
         
         if (currentUserId == Guid.Empty)
-            return new Error("Validation", "User Id cannot be empty");
+            return Result<ICollection<TeamMember>>.Failure(new Error("Validation", "User Id cannot be empty"));
 
         // 2. Проверка существования команды
-        var team = _unitOfWork.TeamRepository.GetTeamById(dto.id);
+        var team = await _unitOfWork.TeamRepository.GetTeamByIdAsync(dto.id);
         if (team is null)
-            return new Error("Validation", "Team not found");
+            return Result<ICollection<TeamMember>>.Failure(new Error("Validation", "Team not found"));
 
         // 3. Проверка прав (пользователь должен быть участником команды)
-        if (!_unitOfWork.TeamMemberRepository.IsUserInTeam(dto.id, currentUserId))
-            return new Error("Authorization", "User is not a member of this team");
+        var isUserInTeam = await _unitOfWork.TeamMemberRepository.IsUserInTeamAsync(dto.id, currentUserId);
+        if (!isUserInTeam)
+            return Result<ICollection<TeamMember>>.Failure(new Error("Authorization", "User is not a member of this team"));
 
         // 4. Получаем всех участников
-        var members = _unitOfWork.TeamRepository.GetTeamWithMembers(dto.id);
-        if(members is null)
-            return new Error("Validation", "Members not found");
+        var members = await _unitOfWork.TeamRepository.GetTeamWithMembersAsync(dto.id);
+        if (members is null || members.Members is null)
+            return Result<ICollection<TeamMember>>.Failure(new Error("Validation", "Members not found"));
         
         return Result<ICollection<TeamMember>>.Success(members.Members);
     }
 
-    public Result UpdateMemberRole(UpdateTeamRoleDto dto, Guid userId)
+    public async Task<Result> UpdateMemberRoleAsync(UpdateTeamRoleDto dto, Guid userId)
     {
         if (dto is null)
-            return new Error("Validation", "Request cannot be empty");
-        if (dto.TeamId == Guid.Empty)
-            return new Error("Validation", "Id cannot be empty");
-        if (dto.UserId == Guid.Empty)
-            return new Error("Validation", "Id cannot be empty");
-        if (userId == Guid.Empty)
-            return new Error("Validation", "Id cannot be empty");
+            return Result.Failure(new Error("Validation", "Request cannot be empty"));
         
-        var team = _unitOfWork.TeamRepository.GetTeamById(dto.TeamId);
+        if (dto.TeamId == Guid.Empty)
+            return Result.Failure(new Error("Validation", "Team Id cannot be empty"));
+        
+        if (dto.UserId == Guid.Empty)
+            return Result.Failure(new Error("Validation", "User Id cannot be empty"));
+        
+        if (userId == Guid.Empty)
+            return Result.Failure(new Error("Validation", "Current User Id cannot be empty"));
+        
+        var team = await _unitOfWork.TeamRepository.GetTeamByIdAsync(dto.TeamId);
         if (team is null)
-            return new Error("Validation", "Team not found");
+            return Result.Failure(new Error("Validation", "Team not found"));
 
-        if (!_unitOfWork.TeamMemberRepository.IsUserAdmin(dto.TeamId, userId))
-            return new Error("Authorization", "User is not a member of this team");
+        var isAdmin = await _unitOfWork.TeamMemberRepository.IsUserAdminAsync(dto.TeamId, userId);
+        if (!isAdmin)
+            return Result.Failure(new Error("Authorization", "User is not an admin of this team"));
 
-        var teamMember = _unitOfWork.TeamMemberRepository.GetByTeamAndUser(dto.TeamId,dto.UserId );
-
+        var teamMember = await _unitOfWork.TeamMemberRepository.GetByTeamAndUserAsync(dto.TeamId, dto.UserId);
         if (teamMember is null)
-            return new Error("Validation", "Not found");
+            return Result.Failure(new Error("Validation", "Team member not found"));
 
         if (teamMember.IsAdmin)
-            return new Error("BadRequest", "User already is admin");
+            return Result.Failure(new Error("BadRequest", "User already is admin"));
 
         teamMember.ChangeRole(true);
-        _unitOfWork.SaveChanges();
+        await _unitOfWork.SaveChangesAsync();
         return Result.Success();
     }
 }

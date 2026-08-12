@@ -1,61 +1,73 @@
-﻿using src;
+﻿using Microsoft.EntityFrameworkCore;
+using src;
 using src.Db;
 using src.Domain.Entities;
 using src.Domain.ValueObjects;
 
 namespace TestProject1.Integration_tests;
 
-
 public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
 {
     private readonly TestDatabaseFixture _fixture;
 
+    
     public TeamServiceTests(TestDatabaseFixture fixture)
     {
         _fixture = fixture;
     }
 
-    private User CreateAndSaveUser(ApplicationContext context, string name = "User", string email = null,
+    private async Task<User> CreateAndSaveUserAsync(ApplicationContext context, string name = "User", string email = null,
         string password = "Password123")
     {
         email ??= $"user_{Guid.NewGuid():N}@test.com";
         var user = User.Create(name, Email.Create(email).Value, Password.Create(password).Value).Value;
-        context.Users.Add(user);
-        context.SaveChanges();
+        await context.Users.AddAsync(user);
+        await context.SaveChangesAsync();
         return user;
     }
 
+    private async Task<Team> CreateTeamAsync(TeamService teamService, Guid adminId, string name)
+    {
+        var result = await teamService.CreateAsync(adminId, new CreateTeamDto(name));
+        Assert.True(result.IsSuccess);
+        
+        // Нам нужно получить созданную команду из контекста
+        // Используем поле _fixture для доступа к контексту
+        using var context = _fixture.CreateContext();
+        return await context.Teams.FirstOrDefaultAsync(t => t.Name == name);
+    }
+
     [Fact]
-    public void CreateTeam_HappyPath()
+    public async Task CreateTeam_HappyPath()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var user = CreateAndSaveUser(context);
+        var user = await CreateAndSaveUserAsync(context);
         var dto = new CreateTeamDto("Test Team");
 
-        var result = teamService.Create(user.Id, dto);
+        var result = await teamService.CreateAsync(user.Id, dto);
 
         Assert.True(result.IsSuccess);
-        var team = context.Teams.FirstOrDefault(t => t.Name == "Test Team");
+        var team = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Test Team");
         Assert.NotNull(team);
-        var adminMember = context.TeamMembers.FirstOrDefault(tm => tm.TeamId == team.Id && tm.UserId == user.Id);
+        var adminMember = await context.TeamMembers.FirstOrDefaultAsync(tm => tm.TeamId == team.Id && tm.UserId == user.Id);
         Assert.NotNull(adminMember);
         Assert.True(adminMember.IsAdmin);
     }
 
     [Fact]
-    public void CreateTeam_WithEmptyName_ReturnsValidationError()
+    public async Task CreateTeam_WithEmptyName_ReturnsValidationError()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var user = CreateAndSaveUser(context);
+        var user = await CreateAndSaveUserAsync(context);
         var dto = new CreateTeamDto("");
 
-        var result = teamService.Create(user.Id, dto);
+        var result = await teamService.CreateAsync(user.Id, dto);
 
         Assert.True(result.IsFailure);
         Assert.Equal("Validation", result.Error.Errortype);
@@ -63,45 +75,45 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     }
 
     [Fact]
-    public void DeleteTeam_AsAdmin_HappyPath()
+    public async Task DeleteTeam_AsAdmin_HappyPath()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var admin = CreateAndSaveUser(context, "Admin", "admin5@test.com");
-        var createTeamResult = teamService.Create(admin.Id, new CreateTeamDto("Test Team"));
+        var admin = await CreateAndSaveUserAsync(context, "Admin", "admin5@test.com");
+        var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
         Assert.True(createTeamResult.IsSuccess);
 
-        var team = context.Teams.FirstOrDefault(t => t.Name == "Test Team");
+        var team = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Test Team");
         Assert.NotNull(team);
 
-        var result = teamService.Delete(new DeleteTeamDto(team.Id), admin.Id);
+        var result = await teamService.DeleteAsync(new DeleteTeamDto(team.Id), admin.Id);
 
         Assert.True(result.IsSuccess);
-        var teamAfter = context.Teams.FirstOrDefault(t => t.Id == team.Id);
+        var teamAfter = await context.Teams.FirstOrDefaultAsync(t => t.Id == team.Id);
         Assert.Null(teamAfter);
     }
 
     [Fact]
-    public void DeleteTeam_AsNonAdmin_ReturnsAuthorizationError()
+    public async Task DeleteTeam_AsNonAdmin_ReturnsAuthorizationError()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var admin = CreateAndSaveUser(context, "Admin", "admin6@test.com");
-        var createTeamResult = teamService.Create(admin.Id, new CreateTeamDto("Test Team"));
+        var admin = await CreateAndSaveUserAsync(context, "Admin", "admin6@test.com");
+        var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
         Assert.True(createTeamResult.IsSuccess);
 
-        var team = context.Teams.FirstOrDefault(t => t.Name == "Test Team");
+        var team = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Test Team");
         Assert.NotNull(team);
 
-        var nonAdmin = CreateAndSaveUser(context, "NonAdmin", "nonadmin3@test.com");
-        var addUserResult = teamService.AddUser(new AddUserInTeamDto(team.Id, nonAdmin.Id, false), admin.Id);
+        var nonAdmin = await CreateAndSaveUserAsync(context, "NonAdmin", "nonadmin3@test.com");
+        var addUserResult = await teamService.AddUserAsync(new AddUserInTeamDto(team.Id, nonAdmin.Id, false), admin.Id);
         Assert.True(addUserResult.IsSuccess);
 
-        var result = teamService.Delete(new DeleteTeamDto(team.Id), nonAdmin.Id);
+        var result = await teamService.DeleteAsync(new DeleteTeamDto(team.Id), nonAdmin.Id);
 
         Assert.True(result.IsFailure);
         Assert.Equal("Validation", result.Error.Errortype);
@@ -109,50 +121,50 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     }
 
     [Fact]
-    public void AddUserToTeam_AsAdmin_HappyPath()
+    public async Task AddUserToTeam_AsAdmin_HappyPath()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var admin = CreateAndSaveUser(context, "Admin", "admin7@test.com");
-        var createTeamResult = teamService.Create(admin.Id, new CreateTeamDto("Test Team"));
+        var admin = await CreateAndSaveUserAsync(context, "Admin", "admin7@test.com");
+        var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
         Assert.True(createTeamResult.IsSuccess);
 
-        var team = context.Teams.FirstOrDefault(t => t.Name == "Test Team");
+        var team = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Test Team");
         Assert.NotNull(team);
 
-        var user = CreateAndSaveUser(context, "User", "user5@test.com");
+        var user = await CreateAndSaveUserAsync(context, "User", "user5@test.com");
         var dto = new AddUserInTeamDto(team.Id, user.Id, false);
 
-        var result = teamService.AddUser(dto, admin.Id);
+        var result = await teamService.AddUserAsync(dto, admin.Id);
 
         Assert.True(result.IsSuccess, $"{result.Error.Errortype}: {result.Error.Message}");
-        var member = context.TeamMembers.FirstOrDefault(tm => tm.TeamId == team.Id && tm.UserId == user.Id);
+        var member = await context.TeamMembers.FirstOrDefaultAsync(tm => tm.TeamId == team.Id && tm.UserId == user.Id);
         Assert.NotNull(member);
         Assert.False(member.IsAdmin);
     }
 
     [Fact]
-    public void AddUserToTeam_WhenUserAlreadyInTeam_ReturnsValidationError()
+    public async Task AddUserToTeam_WhenUserAlreadyInTeam_ReturnsValidationError()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var admin = CreateAndSaveUser(context, "Admin", "admin8@test.com");
-        var createTeamResult = teamService.Create(admin.Id, new CreateTeamDto("Test Team"));
+        var admin = await CreateAndSaveUserAsync(context, "Admin", "admin8@test.com");
+        var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
         Assert.True(createTeamResult.IsSuccess);
 
-        var team = context.Teams.FirstOrDefault(t => t.Name == "Test Team");
+        var team = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Test Team");
         Assert.NotNull(team);
 
-        var user = CreateAndSaveUser(context, "User", "user6@test.com");
-        var addUserResult = teamService.AddUser(new AddUserInTeamDto(team.Id, user.Id, false), admin.Id);
+        var user = await CreateAndSaveUserAsync(context, "User", "user6@test.com");
+        var addUserResult = await teamService.AddUserAsync(new AddUserInTeamDto(team.Id, user.Id, false), admin.Id);
         Assert.True(addUserResult.IsSuccess);
 
         var dto = new AddUserInTeamDto(team.Id, user.Id, false);
-        var result = teamService.AddUser(dto, admin.Id);
+        var result = await teamService.AddUserAsync(dto, admin.Id);
 
         Assert.True(result.IsFailure);
         Assert.Equal("Validation", result.Error.Errortype);
@@ -160,79 +172,79 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     }
 
     [Fact]
-    public void DeleteUserFromTeam_AsAdmin_HappyPath()
+    public async Task DeleteUserFromTeam_AsAdmin_HappyPath()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var admin = CreateAndSaveUser(context, "Admin", "admin9@test.com");
-        var createTeamResult = teamService.Create(admin.Id, new CreateTeamDto("Test Team"));
+        var admin = await CreateAndSaveUserAsync(context, "Admin", "admin9@test.com");
+        var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
         Assert.True(createTeamResult.IsSuccess);
 
-        var team = context.Teams.FirstOrDefault(t => t.Name == "Test Team");
+        var team = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Test Team");
         Assert.NotNull(team);
 
-        var user = CreateAndSaveUser(context, "User", "user7@test.com");
-        var addUserResult = teamService.AddUser(new AddUserInTeamDto(team.Id, user.Id, false), admin.Id);
+        var user = await CreateAndSaveUserAsync(context, "User", "user7@test.com");
+        var addUserResult = await teamService.AddUserAsync(new AddUserInTeamDto(team.Id, user.Id, false), admin.Id);
         Assert.True(addUserResult.IsSuccess);
 
         var dto = new DeleteUserFromTeamDto(team.Id, user.Id);
-        var result = teamService.DeleteUser(dto, admin.Id);
+        var result = await teamService.DeleteUserAsync(dto, admin.Id);
 
         Assert.True(result.IsSuccess);
-        var member = context.TeamMembers.FirstOrDefault(tm => tm.TeamId == team.Id && tm.UserId == user.Id);
+        var member = await context.TeamMembers.FirstOrDefaultAsync(tm => tm.TeamId == team.Id && tm.UserId == user.Id);
         Assert.Null(member);
     }
 
     [Fact]
-    public void GetAllTeamWhereUserMember_HappyPath()
+    public async Task GetAllTeamWhereUserMember_HappyPath()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var admin1 = CreateAndSaveUser(context, "Admin1", "admin10@test.com");
-        var admin2 = CreateAndSaveUser(context, "Admin2", "admin11@test.com");
-        var user = CreateAndSaveUser(context, "User", "user8@test.com");
+        var admin1 = await CreateAndSaveUserAsync(context, "Admin1", "admin10@test.com");
+        var admin2 = await CreateAndSaveUserAsync(context, "Admin2", "admin11@test.com");
+        var user = await CreateAndSaveUserAsync(context, "User", "user8@test.com");
 
-        var createTeamResult1 = teamService.Create(admin1.Id, new CreateTeamDto("Team 1"));
+        var createTeamResult1 = await teamService.CreateAsync(admin1.Id, new CreateTeamDto("Team 1"));
         Assert.True(createTeamResult1.IsSuccess);
-        var createTeamResult2 = teamService.Create(admin2.Id, new CreateTeamDto("Team 2"));
+        var createTeamResult2 = await teamService.CreateAsync(admin2.Id, new CreateTeamDto("Team 2"));
         Assert.True(createTeamResult2.IsSuccess);
 
-        var team1 = context.Teams.FirstOrDefault(t => t.Name == "Team 1");
-        var team2 = context.Teams.FirstOrDefault(t => t.Name == "Team 2");
+        var team1 = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Team 1");
+        var team2 = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Team 2");
         Assert.NotNull(team1);
         Assert.NotNull(team2);
 
-        var addUserResult1 = teamService.AddUser(new AddUserInTeamDto(team1.Id, user.Id, false), admin1.Id);
+        var addUserResult1 = await teamService.AddUserAsync(new AddUserInTeamDto(team1.Id, user.Id, false), admin1.Id);
         Assert.True(addUserResult1.IsSuccess);
-        var addUserResult2 = teamService.AddUser(new AddUserInTeamDto(team2.Id, user.Id, false), admin2.Id);
+        var addUserResult2 = await teamService.AddUserAsync(new AddUserInTeamDto(team2.Id, user.Id, false), admin2.Id);
         Assert.True(addUserResult2.IsSuccess);
 
-        var result = teamService.GetAllTeamWhereUserMember(user.Id);
+        var result = await teamService.GetAllTeamWhereUserMemberAsync(user.Id);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Value.Count());
     }
 
     [Fact]
-    public void GetAllTeamWithUsers_HappyPath()
+    public async Task GetAllTeamWithUsers_HappyPath()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var admin = CreateAndSaveUser(context, "Admin", "admin12@test.com");
-        var createTeamResult = teamService.Create(admin.Id, new CreateTeamDto("Test Team"));
+        var admin = await CreateAndSaveUserAsync(context, "Admin", "admin12@test.com");
+        var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
         Assert.True(createTeamResult.IsSuccess);
 
-        var team = context.Teams.FirstOrDefault(t => t.Name == "Test Team");
+        var team = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Test Team");
         Assert.NotNull(team);
 
         var dto = new GetTeamDto(team.Id);
-        var result = teamService.GetAllTeamWithUsers(dto, admin.Id);
+        var result = await teamService.GetAllTeamWithUsersAsync(dto, admin.Id);
 
         Assert.True(result.IsSuccess);
         Assert.Single(result.Value);
@@ -240,22 +252,22 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     }
 
     [Fact]
-    public void GetAllTeamWithUsers_WhenUserNotMember_ReturnsAuthorizationError()
+    public async Task GetAllTeamWithUsers_WhenUserNotMember_ReturnsAuthorizationError()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var admin = CreateAndSaveUser(context, "Admin", "admin13@test.com");
-        var createTeamResult = teamService.Create(admin.Id, new CreateTeamDto("Test Team"));
+        var admin = await CreateAndSaveUserAsync(context, "Admin", "admin13@test.com");
+        var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
         Assert.True(createTeamResult.IsSuccess);
 
-        var team = context.Teams.FirstOrDefault(t => t.Name == "Test Team");
+        var team = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Test Team");
         Assert.NotNull(team);
 
-        var otherUser = CreateAndSaveUser(context, "Other", "other@test.com");
+        var otherUser = await CreateAndSaveUserAsync(context, "Other", "other@test.com");
         var dto = new GetTeamDto(team.Id);
-        var result = teamService.GetAllTeamWithUsers(dto, otherUser.Id);
+        var result = await teamService.GetAllTeamWithUsersAsync(dto, otherUser.Id);
 
         Assert.True(result.IsFailure);
         Assert.Equal("Authorization", result.Error.Errortype);
@@ -263,51 +275,51 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     }
 
     [Fact]
-    public void UpdateMemberRole_HappyPath()
+    public async Task UpdateMemberRole_HappyPath()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var admin = CreateAndSaveUser(context, "Admin", "admin14@test.com");
-        var createTeamResult = teamService.Create(admin.Id, new CreateTeamDto("Test Team"));
+        var admin = await CreateAndSaveUserAsync(context, "Admin", "admin14@test.com");
+        var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
         Assert.True(createTeamResult.IsSuccess);
 
-        var team = context.Teams.FirstOrDefault(t => t.Name == "Test Team");
+        var team = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Test Team");
         Assert.NotNull(team);
 
-        var user = CreateAndSaveUser(context, "User", "user9@test.com");
-        var addUserResult = teamService.AddUser(new AddUserInTeamDto(team.Id, user.Id, false), admin.Id);
+        var user = await CreateAndSaveUserAsync(context, "User", "user9@test.com");
+        var addUserResult = await teamService.AddUserAsync(new AddUserInTeamDto(team.Id, user.Id, false), admin.Id);
         Assert.True(addUserResult.IsSuccess);
 
         var dto = new UpdateTeamRoleDto(team.Id, user.Id);
-        var result = teamService.UpdateMemberRole(dto, admin.Id);
+        var result = await teamService.UpdateMemberRoleAsync(dto, admin.Id);
 
         Assert.True(result.IsSuccess);
-        var updatedMember = context.TeamMembers.FirstOrDefault(tm => tm.TeamId == team.Id && tm.UserId == user.Id);
+        var updatedMember = await context.TeamMembers.FirstOrDefaultAsync(tm => tm.TeamId == team.Id && tm.UserId == user.Id);
         Assert.True(updatedMember.IsAdmin);
     }
 
     [Fact]
-    public void UpdateMemberRole_WhenUserAlreadyAdmin_ReturnsBadRequest()
+    public async Task UpdateMemberRole_WhenUserAlreadyAdmin_ReturnsBadRequest()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var admin = CreateAndSaveUser(context, "Admin", "admin15@test.com");
-        var createTeamResult = teamService.Create(admin.Id, new CreateTeamDto("Test Team"));
+        var admin = await CreateAndSaveUserAsync(context, "Admin", "admin15@test.com");
+        var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
         Assert.True(createTeamResult.IsSuccess);
 
-        var team = context.Teams.FirstOrDefault(t => t.Name == "Test Team");
+        var team = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Test Team");
         Assert.NotNull(team);
 
-        var otherAdmin = CreateAndSaveUser(context, "OtherAdmin", "otheradmin@test.com");
-        var addUserResult = teamService.AddUser(new AddUserInTeamDto(team.Id, otherAdmin.Id, true), admin.Id);
+        var otherAdmin = await CreateAndSaveUserAsync(context, "OtherAdmin", "otheradmin@test.com");
+        var addUserResult = await teamService.AddUserAsync(new AddUserInTeamDto(team.Id, otherAdmin.Id, true), admin.Id);
         Assert.True(addUserResult.IsSuccess);
 
         var dto = new UpdateTeamRoleDto(team.Id, otherAdmin.Id);
-        var result = teamService.UpdateMemberRole(dto, admin.Id);
+        var result = await teamService.UpdateMemberRoleAsync(dto, admin.Id);
 
         Assert.True(result.IsFailure);
         Assert.Equal("BadRequest", result.Error.Errortype);
@@ -315,52 +327,52 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     }
 
     [Fact]
-    public void GetAllTasksTeam_HappyPath()
+    public async Task GetAllTasksTeam_HappyPath()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var admin = CreateAndSaveUser(context, "Admin", "admin16@test.com");
-        var createTeamResult = teamService.Create(admin.Id, new CreateTeamDto("Test Team"));
+        var admin = await CreateAndSaveUserAsync(context, "Admin", "admin16@test.com");
+        var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
         Assert.True(createTeamResult.IsSuccess);
 
-        var team = context.Teams.FirstOrDefault(t => t.Name == "Test Team");
+        var team = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Test Team");
         Assert.NotNull(team);
 
-        var user = CreateAndSaveUser(context, "User", "user10@test.com");
-        var addUserResult = teamService.AddUser(new AddUserInTeamDto(team.Id, user.Id, false), admin.Id);
+        var user = await CreateAndSaveUserAsync(context, "User", "user10@test.com");
+        var addUserResult = await teamService.AddUserAsync(new AddUserInTeamDto(team.Id, user.Id, false), admin.Id);
         Assert.True(addUserResult.IsSuccess);
 
         var task1 = UserTask.Create("Task 1", admin.Id, team.Id, user.Id).Value;
         var task2 = UserTask.Create("Task 2", admin.Id, team.Id, user.Id).Value;
-        context.Tasks.AddRange(task1, task2);
-        context.SaveChanges();
+        await context.Tasks.AddRangeAsync(task1, task2);
+        await context.SaveChangesAsync();
 
         var dto = new GetAllTeamTaskDto(team.Id);
-        var result = teamService.GetAllTasksTeam(dto, user.Id);
+        var result = await teamService.GetAllTasksTeamAsync(dto, user.Id);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Value.Count());
     }
 
     [Fact]
-    public void GetAllTasksTeam_WhenUserNotMember_ReturnsAuthorizationError()
+    public async Task GetAllTasksTeam_WhenUserNotMember_ReturnsAuthorizationError()
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
         var teamService = new TeamService(unitOfWork.UnitOfWork);
 
-        var admin = CreateAndSaveUser(context, "Admin", "admin17@test.com");
-        var createTeamResult = teamService.Create(admin.Id, new CreateTeamDto("Test Team"));
+        var admin = await CreateAndSaveUserAsync(context, "Admin", "admin17@test.com");
+        var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
         Assert.True(createTeamResult.IsSuccess);
 
-        var team = context.Teams.FirstOrDefault(t => t.Name == "Test Team");
+        var team = await context.Teams.FirstOrDefaultAsync(t => t.Name == "Test Team");
         Assert.NotNull(team);
 
-        var otherUser = CreateAndSaveUser(context, "Other", "other2@test.com");
+        var otherUser = await CreateAndSaveUserAsync(context, "Other", "other2@test.com");
         var dto = new GetAllTeamTaskDto(team.Id);
-        var result = teamService.GetAllTasksTeam(dto, otherUser.Id);
+        var result = await teamService.GetAllTasksTeamAsync(dto, otherUser.Id);
 
         Assert.True(result.IsFailure);
         Assert.Equal("Authorization", result.Error.Errortype);

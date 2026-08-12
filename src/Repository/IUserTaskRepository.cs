@@ -4,13 +4,13 @@ namespace src;
 
 public interface IUserTaskRepository
 {
-    public bool IsThisUserAuthor(Guid userId, Guid taskId);
-    public UserTask? GetTaskById(Guid taskId);
-    public IEnumerable<UserTask> GetTasksByUser(Guid userId);
-    public void Delete(Guid taskid);
-    public void Add(UserTask task);
-    public void Update(Guid taskId, string newName);
-    public IReadOnlyList<UserTask> GetAllTasks();
-    public bool CanUserManageTask(Guid taskId, Guid userId);
-    public IEnumerable<UserTask> GetTasksByTeamId(Guid teamId);
+    Task<bool> IsThisUserAuthorAsync(Guid userId, Guid taskId);
+    Task<UserTask?> GetTaskByIdAsync(Guid taskId);
+    Task<IEnumerable<UserTask>> GetTasksByUserAsync(Guid userId);
+    Task DeleteTaskAsync(Guid taskId);
+    Task AddTaskAsync(UserTask task);
+    Task UpdateTaskAsync(Guid taskId, string newName);
+    Task<IReadOnlyList<UserTask>> GetAllTasksAsync();
+    Task<bool> CanUserManageTaskAsync(Guid taskId, Guid userId);
+    Task<IEnumerable<UserTask>> GetTasksByTeamIdAsync(Guid teamId);
 }

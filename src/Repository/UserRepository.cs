@@ -13,38 +13,40 @@ public class UserRepository : IUserRepository
         _context = context;
     }
 
-    public  User? GetUserByEmail(string email)
+    public async Task<User?> GetUserByEmailAsync(string email)
     {
-        return  _context.Users
-            .FirstOrDefault(user => user.Email.Value == email);
+        return await _context.Users
+            .FirstOrDefaultAsync(user => user.Email.Value == email);
     }
 
-    public void Add(User user)
+    public async Task AddUserAsync(User user)
     {
-        _context.Users.Add(user); 
+        await _context.Users.AddAsync(user);
+        // SaveChangesAsync вызывается в UnitOfWork
     }
 
-    public void Delete(User user)
+    public async Task DeleteUserAsync(User user)
     {
         _context.Users.Remove(user);
+        // SaveChangesAsync вызывается в UnitOfWork
     }
 
-    public bool UserExists(string email)
+    public async Task<bool> UserExistsAsync(string email)
     {
-        return _context.Users
-            .Any(user => user.Email.Value == email);
+        return await _context.Users
+            .AnyAsync(user => user.Email.Value == email);
     }
     
-    public  IReadOnlyList<User> GetAllUsers()
+    public async Task<IReadOnlyList<User>> GetAllUsersAsync()
     {
-        return  _context.Users
+        return await _context.Users
             .AsNoTracking()
-            .ToList();
+            .ToListAsync();
     }
 
-    public User? GetUserById(Guid id)
+    public async Task<User?> GetUserByIdAsync(Guid id)
     {
-        return  _context.Users
-            .FirstOrDefault(u => u.Id == id);
+        return await _context.Users
+            .FirstOrDefaultAsync(u => u.Id == id);
     }
 }

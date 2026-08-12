@@ -9,7 +9,7 @@ public class TaskService(IUnitOfWork unitOfWork)
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
 
-    public Result<Guid> Create(CreateTaskDto createTaskDto, Guid currentUserId)
+    public async Task<Result<Guid>> CreateAsync(CreateTaskDto createTaskDto, Guid currentUserId)
     {
         // 1. Валидация DTO
         if (createTaskDto is null)
@@ -49,23 +49,23 @@ public class TaskService(IUnitOfWork unitOfWork)
             var assignedUserId = task.AssignedToUserID.Value;
 
             // Проверяем, что команда существует
-            var team = _unitOfWork.TeamRepository.GetTeamById(teamId);
+            var team = await _unitOfWork.TeamRepository.GetTeamByIdAsync(teamId);
             if (team is null)
                 return Result<Guid>.Failure(new Error("NotFound", "Team not found"));
 
             // Проверяем, что текущий пользователь — админ команды
-            var isAdmin = _unitOfWork.TeamRepository.IsUserAdminOfTeam(currentUserId, teamId);
+            var isAdmin = await _unitOfWork.TeamRepository.IsUserAdminOfTeamAsync(currentUserId, teamId);
             if (!isAdmin)
                 return Result<Guid>.Failure(new Error("Authorization",
                     "Only team admin can create tasks in this team"));
 
             // Проверяем, что пользователь, которому назначают, состоит в команде
-            var isUserInTeam = _unitOfWork.TeamRepository.IsUserInTeam(assignedUserId, teamId);
+            var isUserInTeam = await _unitOfWork.TeamRepository.IsUserInTeamAsync(assignedUserId, teamId);
             if (!isUserInTeam)
                 return Result<Guid>.Failure(new Error("Validation", "User is not a member of this team"));
 
             // Проверяем, что пользователь, которому назначают, существует
-            var assignedUser = _unitOfWork.UserRepository.GetUserById(assignedUserId);
+            var assignedUser = await _unitOfWork.UserRepository.GetUserByIdAsync(assignedUserId);
             if (assignedUser is null)
                 return Result<Guid>.Failure(new Error("NotFound", "Assigned user not found"));
         }
@@ -78,69 +78,73 @@ public class TaskService(IUnitOfWork unitOfWork)
         }
 
         // 8. Добавляем задачу (единственное место)
-        _unitOfWork.UserTaskRepository.Add(task);
-        _unitOfWork.SaveChanges();
+        await _unitOfWork.UserTaskRepository.AddTaskAsync(task);
+        await _unitOfWork.SaveChangesAsync();
 
         return Result<Guid>.Success(task.Id);
     }
 
-    public Result Delete(DeleteTaskDto deleteTaskDto, Guid userid)
+    public async Task<Result> DeleteAsync(DeleteTaskDto deleteTaskDto, Guid userid)
     {
         if (deleteTaskDto is null)
             return Result.Failure(new Error("Validation", "Request cannot be null"));
         
         if (userid == Guid.Empty)
-            return new Error("Validation", "Id cannot be empty");
+            return Result.Failure(new Error("Validation", "Id cannot be empty"));
         
-        if (_unitOfWork.UserRepository.GetUserById(userid) is null)
-            return new Error("Validation", "User not found");
+        var user = await _unitOfWork.UserRepository.GetUserByIdAsync(userid);
+        if (user is null)
+            return Result.Failure(new Error("Validation", "User not found"));
         
-        _unitOfWork.BeginTransaction();
+        await _unitOfWork.BeginTransactionAsync();
         try
         {
-            var task = _unitOfWork.UserTaskRepository.GetTaskById(deleteTaskDto.id);
+            var task = await _unitOfWork.UserTaskRepository.GetTaskByIdAsync(deleteTaskDto.id);
             if (task is null)
                 return Result.Failure(new Error("NotFounded", "Task ID isn't correct"));
-            var canDelete = _unitOfWork.UserTaskRepository.CanUserManageTask(task.Id, userid); 
-            if (!canDelete)
-                return new Error("Authorization", "Can't delete task");
             
-            _unitOfWork.UserTaskRepository.Delete(deleteTaskDto.id);
-            _unitOfWork.SaveChanges();
-            _unitOfWork.Commit();
+            var canDelete = await _unitOfWork.UserTaskRepository.CanUserManageTaskAsync(task.Id, userid); 
+            if (!canDelete)
+                return Result.Failure(new Error("Authorization", "Can't delete task"));
+            
+            await _unitOfWork.UserTaskRepository.DeleteTaskAsync(deleteTaskDto.id);
+            await _unitOfWork.SaveChangesAsync();
+            await _unitOfWork.CommitTransactionAsync();
             return Result.Success();
         }
         catch (Exception e)
         {
-            _unitOfWork.Rollback();
-            return Result.Failure(new Error("Server Error", "Error occured" + e.Message));
+            await _unitOfWork.RollbackTransactionAsync();
+            return Result.Failure(new Error("Server Error", "Error occured: " + e.Message));
         }
     }
 
-    public Result<IEnumerable<UserTask>> GetTasks(Guid id)
+    public async Task<Result<IEnumerable<UserTask>>> GetTasksAsync(Guid id)
     {
         if (id == Guid.Empty)
-            return new Error("Validation", "Task ID cannot be empty");
+            return Result<IEnumerable<UserTask>>.Failure(new Error("Validation", "Task ID cannot be empty"));
 
-        var task = _unitOfWork.UserTaskRepository.GetTasksByUser(id);
-        if (task is null)
-            return new Error("NotFounded", "Task:" + id.ToString());
+        var tasks = await _unitOfWork.UserTaskRepository.GetTasksByUserAsync(id);
+        if (tasks is null || !tasks.Any())
+            return Result<IEnumerable<UserTask>>.Failure(new Error("NotFounded", $"No tasks found for user: {id}"));
 
-        return Result<IEnumerable<UserTask>>.Success(task);
+        return Result<IEnumerable<UserTask>>.Success(tasks);
     }
 
-    public Result<UserTask> GetTaskById(Guid taskId, Guid userId)
+    public async Task<Result<UserTask>> GetTaskByIdAsync(Guid taskId, Guid userId)
     {
-       var canUserManage =  _unitOfWork.UserTaskRepository.CanUserManageTask(taskId, userId);
-       if(!canUserManage)
-           return new Error("Validation", "Can't manage Task");
-       var task = _unitOfWork.UserTaskRepository.GetTaskById(taskId);
-       if (task is null)
-           return new Error("Validation", "Task not founded");
-       return task;
+        var canUserManage = await _unitOfWork.UserTaskRepository.CanUserManageTaskAsync(taskId, userId);
+        if (!canUserManage)
+            return Result<UserTask>.Failure(new Error("Validation", "Can't manage Task"));
+        
+        var task = await _unitOfWork.UserTaskRepository.GetTaskByIdAsync(taskId);
+        if (task is null)
+            return Result<UserTask>.Failure(new Error("Validation", "Task not found"));
+        
+        return Result<UserTask>.Success(task);
     }
     
-    public Result RenameTask(RenameTaskDto results, Guid currentUserId)
+    public async Task<Result> RenameTaskAsync(RenameTaskDto results, Guid currentUserId)
     {
         // 1. Валидация DTO
         if (results is null)
@@ -155,24 +159,25 @@ public class TaskService(IUnitOfWork unitOfWork)
             return Result.Failure(new Error("Validation", "Name cannot be empty"));
 
         // 4. Получаем задачу
-        var task = _unitOfWork.UserTaskRepository.GetTaskById(results.id);
+        var task = await _unitOfWork.UserTaskRepository.GetTaskByIdAsync(results.id);
         if (task is null)
             return Result.Failure(new Error("NotFound", $"Task '{results.id}' not found"));
 
         // 5. Проверка прав (может ли пользователь изменять эту задачу)
-        if (!_unitOfWork.UserTaskRepository.CanUserManageTask(results.id, currentUserId))
+        var canManage = await _unitOfWork.UserTaskRepository.CanUserManageTaskAsync(results.id, currentUserId);
+        if (!canManage)
             return Result.Failure(new Error("Forbidden", "You don't have permission to rename this task"));
 
-        // 6. Меняем имя (используем метод сущности, если есть)
-        task.ChangeName(results.Name); // Или task.Name = results.NewName;
+        // 6. Меняем имя (используем метод сущности)
+        task.ChangeName(results.Name);
 
         // 7. Сохраняем
-        _unitOfWork.SaveChanges();
+        await _unitOfWork.SaveChangesAsync();
 
         return Result.Success();
     }
 
-    public Result AssignTask(AssignTaskDto assignTaskDto, Guid currentUserId)
+    public async Task<Result> AssignTaskAsync(AssignTaskDto assignTaskDto, Guid currentUserId)
     {
         // 1. Валидация DTO
         if (assignTaskDto is null)
@@ -191,7 +196,7 @@ public class TaskService(IUnitOfWork unitOfWork)
             return Result.Failure(new Error("Validation", "Assignee user ID cannot be empty"));
 
         // 5. Получаем задачу
-        var task = _unitOfWork.UserTaskRepository.GetTaskById(assignTaskDto.id);
+        var task = await _unitOfWork.UserTaskRepository.GetTaskByIdAsync(assignTaskDto.id);
         if (task is null)
             return Result.Failure(new Error("NotFound", $"Task '{assignTaskDto.id}' not found"));
 
@@ -202,17 +207,17 @@ public class TaskService(IUnitOfWork unitOfWork)
         var teamId = task.TeamID.Value;
 
         // 7. Проверяем, что текущий пользователь — админ команды
-        var isAdmin = _unitOfWork.TeamMemberRepository.IsUserAdmin(teamId, currentUserId);
+        var isAdmin = await _unitOfWork.TeamMemberRepository.IsUserAdminAsync(teamId, currentUserId);
         if (!isAdmin)
             return Result.Failure(new Error("Authorization", "Only team admins can reassign tasks"));
 
         // 8. Проверяем, что пользователь, которому назначают, состоит в команде
-        var isUserInTeam = _unitOfWork.TeamMemberRepository.IsUserInTeam(teamId, assignTaskDto.AssigneeToUserId);
+        var isUserInTeam = await _unitOfWork.TeamMemberRepository.IsUserInTeamAsync(teamId, assignTaskDto.AssigneeToUserId);
         if (!isUserInTeam)
             return Result.Failure(new Error("Validation", "User is not a member of this team"));
 
         // 9. Проверяем, что пользователь, которому назначают, существует
-        var assigneeUser = _unitOfWork.UserRepository.GetUserById(assignTaskDto.AssigneeToUserId);
+        var assigneeUser = await _unitOfWork.UserRepository.GetUserByIdAsync(assignTaskDto.AssigneeToUserId);
         if (assigneeUser is null)
             return Result.Failure(new Error("NotFound", "Assignee user not found"));
 
@@ -220,7 +225,7 @@ public class TaskService(IUnitOfWork unitOfWork)
         task.AssignTo(assignTaskDto.AssigneeToUserId);
 
         // 11. Сохраняем
-        _unitOfWork.SaveChanges();
+        await _unitOfWork.SaveChangesAsync();
 
         return Result.Success();
     }
