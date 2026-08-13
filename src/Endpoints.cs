@@ -7,7 +7,14 @@ public static class Endpoints
 {
     public static IEndpointRouteBuilder AddAllEndpoints(this IEndpointRouteBuilder app)
     {
-        app.MapPost("/auth/register", async (
+        var group = app.MapGroup("api/v1");
+        var authgroup = group.MapGroup("auth");
+        var usergroup = group.MapGroup("users");
+        var taskgroup = group.MapGroup("tasks");
+        var teamgroup = group.MapGroup("teams");
+        
+        //auth
+        authgroup.MapPost("register", async (
             [FromBody] CreateUserDto request,
             [FromServices] UserService userService) =>
         {
@@ -17,7 +24,7 @@ public static class Endpoints
                 : Results.Created();
         });
 
-        app.MapPost("/auth/login", async (
+        authgroup.MapPost("login", async (
             [FromBody] LoginUserDto request,
             HttpContext context,
             [FromServices] UserService userService,
@@ -35,7 +42,8 @@ public static class Endpoints
             return Results.Ok(new { message = "Login successful" });
         });
 
-        app.MapGet("/users/me", async (
+        //user
+        usergroup.MapGet("/me", async (
             HttpContext context,
             [FromServices] UserService userService,
             [FromServices] TokenService tokenService) =>
@@ -50,7 +58,7 @@ public static class Endpoints
                 : Results.Ok(user.Value);
         }).RequireAuthorization();
 
-        app.MapDelete("/users/{id}", async (
+        usergroup.MapDelete("/{id}", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] UserService userService,
@@ -66,7 +74,7 @@ public static class Endpoints
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapGet("/tasks", async (
+        taskgroup.MapGet("/", async (
             HttpContext context,
             [FromServices] TaskService taskService,
             [FromServices] TokenService tokenService) =>
@@ -81,7 +89,7 @@ public static class Endpoints
                 : Results.Ok(tasks.Value);
         }).RequireAuthorization();
 
-        app.MapGet("/tasks/{id}", async (
+        taskgroup.MapGet("/{id}", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] TaskService taskService,
@@ -97,7 +105,7 @@ public static class Endpoints
                 : Results.Ok(task.Value);
         }).RequireAuthorization();
 
-        app.MapPost("/tasks", async (
+        taskgroup.MapPost("/", async (
             [FromBody] CreateTaskDto createTaskDto,
             HttpContext context,
             [FromServices] TaskService taskService,
@@ -113,7 +121,7 @@ public static class Endpoints
                 : Results.Ok(task.Value);
         }).RequireAuthorization();
 
-        app.MapPatch("/tasks/{id}/name", async (
+        taskgroup.MapPatch("/{id}/name", async (
             [FromRoute] Guid id,
             [FromBody] RenameTaskDto dto,
             HttpContext context,
@@ -130,7 +138,7 @@ public static class Endpoints
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapPatch("/tasks/{id}/assign", async (
+        taskgroup.MapPatch("/{id}/assign", async (
             [FromRoute] Guid id,
             [FromBody] AssignTaskDto dto,
             HttpContext context,
@@ -147,7 +155,7 @@ public static class Endpoints
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapDelete("/tasks/{id}", async (
+        taskgroup.MapDelete("/{id}", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] TaskService taskService,
@@ -163,7 +171,7 @@ public static class Endpoints
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapPost("/teams", async (
+        teamgroup.MapPost("/", async (
             [FromBody] CreateTeamDto createTeamDto,
             HttpContext context,
             [FromServices] TeamService teamService,
@@ -179,7 +187,7 @@ public static class Endpoints
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapGet("/teams", async (
+        teamgroup.MapGet("/", async (
             HttpContext context,
             [FromServices] TeamService teamService,
             [FromServices] TokenService tokenService) =>
@@ -194,7 +202,7 @@ public static class Endpoints
                 : Results.Ok(teams.Value);
         }).RequireAuthorization();
 
-        app.MapGet("/teams/{id}", async (
+        teamgroup.MapGet("/{id}", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] TeamService teamService,
@@ -210,7 +218,7 @@ public static class Endpoints
                 : Results.Ok(team.Value);
         }).RequireAuthorization();
 
-        app.MapDelete("/teams/{id}", async (
+        teamgroup.MapDelete("/{id}", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] TeamService teamService,
@@ -226,7 +234,7 @@ public static class Endpoints
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapGet("/teams/{id}/members", async (
+        teamgroup.MapGet("/{id}/members", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] TeamService teamService,
@@ -242,7 +250,7 @@ public static class Endpoints
                 : Results.Ok(members.Value);
         }).RequireAuthorization();
 
-        app.MapPost("/teams/{id}/members", async (
+        teamgroup.MapPost("/{id}/members", async (
             [FromRoute] Guid id,
             [FromBody] AddUserInTeamDto dto,
             HttpContext context,
@@ -259,7 +267,7 @@ public static class Endpoints
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapDelete("/teams/{id}/members/{userId}", async (
+        teamgroup.MapDelete("/{id}/members/{userId}", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromRoute] Guid userId,
@@ -276,7 +284,7 @@ public static class Endpoints
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapPatch("/teams/{id}/members/{userId}/role", async (
+        teamgroup.MapPatch("/{id}/members/{userId}/role", async (
             [FromRoute] Guid id,
             [FromRoute] Guid userId,
             [FromBody] UpdateTeamRoleDto dto,
@@ -294,7 +302,7 @@ public static class Endpoints
                 : Results.Ok();
         }).RequireAuthorization();
 
-        app.MapGet("/teams/{id}/tasks", async (
+        teamgroup.MapGet("/{id}/tasks", async (
             HttpContext context,
             [FromRoute] Guid id,
             [FromServices] TeamService teamService,
