@@ -51,4 +51,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.AddAllEndpoints();
 
-app.Run();
+//ТОЛЬКО ДЛЯ ЭТОГО ПРОЕКТА
+//В РЕАЛЬНО ПРОДЕ CI/CD пайплайн должен применять миграцию
+using var scope = app.Services.CreateScope();
+var db = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
+await db.Database.MigrateAsync();
+
+await app.RunAsync();
