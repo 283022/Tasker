@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 using src;
 using src.Auth;
 using src.Db;
@@ -12,8 +13,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(c =>
 {
-    var filepath = Path.Combine(AppContext.BaseDirectory, "bin\\Release\\src.xml");
+    var filepath = Path.Combine(Directory.GetCurrentDirectory(), "bin\\Debug\\src.xml");
     c.IncludeXmlComments(filepath);
+
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Tasker", Version = "v1" });
 });
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
@@ -45,7 +48,11 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
     app.UseSwagger();
-    app.MapSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "Tasker API v1");
+        c.RoutePrefix = "swagger"; // или оставить пустым для корня
+    });
 }
 
 app.UseStatusCodePages();

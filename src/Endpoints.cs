@@ -5,15 +5,23 @@ using src.Service;
 
 namespace src;
 
+/// <summary>
+/// Класс для настройки всех эндпоинтов API
+/// </summary>
 public static class Endpoints
 {
+    /// <summary>
+    /// Регистрирует все эндпоинты API
+    /// </summary>
+    /// <param name="app">Билдер маршрутов</param>
+    /// <returns>Билдер с зарегистрированными эндпоинтами</returns>
     public static IEndpointRouteBuilder AddAllEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("api/v1");
-        var authGroup = group.MapGroup("auth");
-        var userGroup = group.MapGroup("users");
-        var taskGroup = group.MapGroup("tasks");
-        var teamGroup = group.MapGroup("teams");
+        var authGroup = group.MapGroup("auth").WithTags("auth");
+        var userGroup = group.MapGroup("users").WithTags("users");
+        var taskGroup = group.MapGroup("tasks").WithTags("tasks");
+        var teamGroup = group.MapGroup("teams").WithTags("teams");
 
         ConfigureAuthEndpoints(authGroup);
         ConfigureUserEndpoints(userGroup);
@@ -23,9 +31,9 @@ public static class Endpoints
         return app;
     }
 
-
-    // AUTH
-
+    // ============================================================
+    // AUTH ENDPOINTS
+    // ============================================================
 
     private static void ConfigureAuthEndpoints(RouteGroupBuilder authGroup)
     {
@@ -37,7 +45,13 @@ public static class Endpoints
                 return result.ToHttpResult();
             })
             .WithSummary("Register a new user")
-            .WithDescription("Creates a new user account with email and password.");
+            .WithDescription(
+                "Creates a new user account with email and password. Password must be at least 8 characters long " +
+                "and contain letters and digits.")
+            .Produces(200)
+            .ProducesProblem(400)
+            .ProducesProblem(409)
+            .ProducesProblem(500);
 
         authGroup.MapPost("login", async (
                 [FromBody] LoginUserDto request,
@@ -61,12 +75,13 @@ public static class Endpoints
             .ProducesProblem(404)
             .ProducesProblem(500)
             .WithSummary("Login user")
-            .WithDescription("Authenticates user and sets JWT cookie.");
+            .WithDescription(
+                "Authenticates user and sets JWT cookie. The token is automatically included in subsequent requests.");
     }
 
-
-    // USERS
-
+    // ============================================================
+    // USER ENDPOINTS
+    // ============================================================
 
     private static void ConfigureUserEndpoints(RouteGroupBuilder userGroup)
     {
@@ -89,7 +104,7 @@ public static class Endpoints
             .ProducesProblem(404)
             .ProducesProblem(500)
             .WithSummary("Get current user")
-            .WithDescription("Returns the authenticated user's profile.");
+            .WithDescription("Returns the authenticated user's profile. Requires authentication.");
 
         userGroup.MapDelete("/{id}", async (
                 HttpContext context,
@@ -115,9 +130,9 @@ public static class Endpoints
             .WithDescription("Deletes a user account. Users can only delete themselves.");
     }
 
-
-    // TASKS
-
+    // ============================================================
+    // TASK ENDPOINTS
+    // ============================================================
 
     private static void ConfigureTaskEndpoints(RouteGroupBuilder taskGroup)
     {
@@ -263,9 +278,9 @@ public static class Endpoints
             .WithDescription("Deletes a task. Only the author or a team admin can delete it.");
     }
 
-
-    // TEAMS
-
+    // ============================================================
+    // TEAM ENDPOINTS
+    // ============================================================
 
     private static void ConfigureTeamEndpoints(RouteGroupBuilder teamGroup)
     {
