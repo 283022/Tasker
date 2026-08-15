@@ -3,14 +3,18 @@ using src;
 using src.Auth;
 using src.Db;
 using src.Repository;
+using src.Service;
 using src.UnitOfWork;
 
 var builder = WebApplication.CreateBuilder(args);
 
 
 builder.Services.AddOpenApi();
-builder.Services.AddSwaggerGen();
-
+builder.Services.AddSwaggerGen(c =>
+{
+    var filepath = Path.Combine(AppContext.BaseDirectory, "bin\\Release\\src.xml");
+    c.IncludeXmlComments(filepath);
+});
 
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
