@@ -3,6 +3,7 @@ using src;
 using src.Db;
 using src.Domain.Entities;
 using src.Domain.ValueObjects;
+using src.Service;
 
 namespace TestProject1.Integration_tests;
 
