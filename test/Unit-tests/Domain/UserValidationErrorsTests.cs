@@ -1,5 +1,6 @@
 ﻿using src.Domain.Entities;
 using src.Domain.ValueObjects;
+using src.Security;
 
 namespace TestProject1.Domain;
 
@@ -11,7 +12,7 @@ public class UserValidationErrorsTests
     {
         // Arrange
         var email = Email.Create("user@example.com").Value;
-        var password = Password.Create("Password123").Value;
+        var password = Password.Create("Password123", new Passwordhasher()).Value;
 
         // Act
         var result = User.Create("", email, password);

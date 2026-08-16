@@ -3,6 +3,7 @@ using src;
 using src.Db;
 using src.Domain.Entities;
 using src.Domain.ValueObjects;
+using src.Security;
 using src.Service;
 
 namespace TestProject1.Integration_tests;
@@ -20,7 +21,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
         string password = "Password123")
     {
         email ??= $"user_{Guid.NewGuid():N}@test.com";
-        var user = User.Create(name, Email.Create(email).Value, Password.Create(password).Value).Value;
+        var user = User.Create(name, Email.Create(email).Value, Password.Create(password, new Passwordhasher()).Value).Value;
         context.Users.Add(user);
         context.SaveChanges();
         return user;

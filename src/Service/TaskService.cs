@@ -1,5 +1,6 @@
 ﻿using src.Domain;
 using src.Domain.Entities;
+using src.Security;
 using src.UnitOfWork;
 
 namespace src.Service;

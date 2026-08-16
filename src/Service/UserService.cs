@@ -5,9 +5,10 @@ using src.UnitOfWork;
 
 namespace src.Service;
 
-public class UserService(IUnitOfWork unitOfWork)
+public class UserService(IUnitOfWork unitOfWork, IPasswordHasher passwordHasher)
 {
     private readonly IUnitOfWork _unitOfWork = unitOfWork;
+    private readonly IPasswordHasher _passwordHasher = passwordHasher;
 
     public async Task<Result> RegisterAsync(CreateUserDto request)
     {
@@ -15,7 +16,9 @@ public class UserService(IUnitOfWork unitOfWork)
             return Result.Failure(Errors.Validation("Request cannot be null."));
 
         var email = Email.Create(request.Email);
-        var password = Password.Create(request.Password);
+
+
+        var password = Password.Create(request.Password, _passwordHasher);
 
         if (email.IsFailure)
             return Result.Failure(Errors.Validation(email.Error.Message, "email"));
@@ -56,8 +59,9 @@ public class UserService(IUnitOfWork unitOfWork)
         if (user is null)
             return Result<User>.Failure(Errors.NotFound($"User with email '{email.Value.Value}' not found."));
 
-        var password = Password.Create(request.Password);
-        if (user.Password.Value != password.Value.Value)
+        var password = Password.Create(request.Password, _passwordHasher);
+
+        if (user.Password.HashPassword != password.Value.HashPassword)
             return Result<User>.Failure(Errors.Unauthorized());
 
         return Result<User>.Success(user);

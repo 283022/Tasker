@@ -31,10 +31,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         // Настройка Complex Property для Password
         builder.ComplexProperty(x => x.Password, password =>
         {
-            password.Property(e => e.Value)
+            password.Property(e => e.HashPassword)
                 .IsRequired()
                 .HasColumnName("Password_Value")
-                .HasMaxLength(254);
+                .HasMaxLength(256);
         });
 
         // Обычное свойство Name
