@@ -1,9 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
+using Serilog;
+using Serilog.Events;
 using src;
 using src.Auth;
 using src.Db;
+using src.Domain;
 using src.Repository;
+using src.Security;
 using src.Service;
 using src.UnitOfWork;
 
@@ -19,9 +23,14 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "Tasker", Version = "v1" });
 });
 
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddSerilog();
+
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 
+builder.Services.AddScoped<IPasswordHasher, Passwordhasher>();
 builder.Services.AddScoped<ITeamRepository, TeamRepository>();
 builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
@@ -69,3 +78,5 @@ var db = scope.ServiceProvider.GetRequiredService<ApplicationContext>();
 await db.Database.MigrateAsync();
 
 await app.RunAsync();
+
+Log.CloseAndFlush();

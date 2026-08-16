@@ -1,111 +1,147 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using src.Domain.Entities;
 using src.Db;
+using src.Domain.Entities;
 
-namespace src;
+namespace src.Repository;
 
-public class UserTaskRepository : IUserTaskRepository
+public class UserTaskRepository(ApplicationContext context, ILogger<UserTaskRepository> logger)
+    : IUserTaskRepository
 {
-    private readonly ApplicationContext _context;
-
-    public UserTaskRepository(ApplicationContext context)
-    {
-        _context = context;
-    }
-
     public async Task<bool> IsThisUserAuthorAsync(Guid userId, Guid taskId)
     {
-        return await _context.Tasks
+        logger.LogTrace("Checking if user {UserId} is author of task {TaskId}", userId, taskId);
+        return await context.Tasks
             .AnyAsync(task => task.Id == taskId && task.CreateByUserID == userId);
     }
     
     public async Task<UserTask?> GetTaskByIdAsync(Guid taskId)
     {
-        return await _context.Tasks
+        logger.LogDebug("Fetching task by id {TaskId}", taskId);
+        var task = await context.Tasks
             .FirstOrDefaultAsync(t => t.Id == taskId);
+        
+        if (task is null)
+            logger.LogDebug("Task {TaskId} not found", taskId);
+        
+        return task;
     }
 
     public async Task<IEnumerable<UserTask>> GetTasksByUserAsync(Guid userId)
     {
-        return await _context.Tasks
+        logger.LogDebug("Fetching tasks for user {UserId}", userId);
+        var tasks = await context.Tasks
             .Where(t => t.CreateByUserID == userId || t.AssignedToUserID == userId)
             .ToListAsync();
+        
+        logger.LogDebug("Found {Count} tasks for user {UserId}", tasks.Count, userId);
+        return tasks;
     }
 
     // Исправлено: возвращаемый тип теперь Task<IEnumerable<UserTask>>
     public async Task<IEnumerable<UserTask>> GetTasksByTeamIdAsync(Guid teamId)
     {
-        return await _context.Tasks
+        logger.LogDebug("Fetching tasks for team {TeamId}", teamId);
+        var tasks = await context.Tasks
             .Where(t => t.TeamID == teamId)
             .ToListAsync();
+        
+        logger.LogDebug("Found {Count} tasks for team {TeamId}", tasks.Count, teamId);
+        return tasks;
     }
     
     public async Task DeleteTaskAsync(Guid taskId)
     {
-        var task = await _context.Tasks
+        logger.LogDebug("Deleting task {TaskId}", taskId);
+        var task = await context.Tasks
             .FirstOrDefaultAsync(t => t.Id == taskId);
             
         if (task != null)
         {
-            _context.Tasks.Remove(task);
+            context.Tasks.Remove(task);
+            logger.LogTrace("Task {TaskId} marked for deletion", taskId);
         }
-        // SaveChangesAsync вызывается в UnitOfWork
+        else
+        {
+            logger.LogWarning("Task {TaskId} not found for deletion", taskId);
+        }
     }
 
     public async Task AddTaskAsync(UserTask task)
     {
-        await _context.Tasks.AddAsync(task);
-        // SaveChangesAsync вызывается в UnitOfWork
+        logger.LogDebug("Adding new task '{TaskName}' created by user {UserId}", 
+            task.Name, task.CreateByUserID);
+        await context.Tasks.AddAsync(task);
     }
     
     public async Task UpdateTaskAsync(Guid taskId, string newName)
     {
-        var task = await _context.Tasks
+        logger.LogDebug("Updating task {TaskId} name to '{NewName}'", taskId, newName);
+        var task = await context.Tasks
             .FirstOrDefaultAsync(t => t.Id == taskId);
             
         if (task != null)
         {
             task.ChangeName(newName);
-            _context.Tasks.Update(task);
+            context.Tasks.Update(task);
+            logger.LogTrace("Task {TaskId} name updated to '{NewName}'", taskId, newName);
         }
-        // SaveChangesAsync вызывается в UnitOfWork
+        else
+        {
+            logger.LogWarning("Task {TaskId} not found for update", taskId);
+        }
     }
     
     public async Task<IReadOnlyList<UserTask>> GetAllTasksAsync()
     {
-        return await _context.Tasks
+        logger.LogTrace("Fetching all tasks");
+        return await context.Tasks
             .AsNoTracking()
             .ToListAsync();
     }
     
     public async Task<bool> CanUserManageTaskAsync(Guid taskId, Guid userId)
     {
-        // 1. Получаем задачу с информацией о команде
-        var task = await _context.Tasks
+        logger.LogTrace("Checking if user {UserId} can manage task {TaskId}", userId, taskId);
+        
+        var task = await context.Tasks
             .FirstOrDefaultAsync(t => t.Id == taskId);
     
         if (task is null)
+        {
+            logger.LogWarning("Task {TaskId} not found for permission check", taskId);
             return false;
+        }
     
-        // 2. Если пользователь — исполнитель задачи
+        // 1. Если пользователь — исполнитель задачи
         if (task.AssignedToUserID == userId)
+        {
+            logger.LogTrace("User {UserId} is the assignee of task {TaskId}", userId, taskId);
             return true;
+        }
     
-        // 3. Если у задачи есть команда и пользователь — админ этой команды
+        // 2. Если у задачи есть команда и пользователь — админ этой команды
         if (task.TeamID.HasValue)
         {
-            var isAdmin = await _context.TeamMembers
+            var isAdmin = await context.TeamMembers
                 .AnyAsync(tm => tm.TeamId == task.TeamID.Value && 
                                 tm.UserId == userId && 
                                 tm.IsAdmin);
             if (isAdmin)
+            {
+                logger.LogTrace("User {UserId} is admin of team {TeamId} for task {TaskId}", 
+                    userId, task.TeamID.Value, taskId);
                 return true;
+            }
         }
     
-        // 4. Если пользователь — создатель задачи
+        // 3. Если пользователь — создатель задачи
         if (task.CreateByUserID == userId)
+        {
+            logger.LogTrace("User {UserId} is the creator of task {TaskId}", userId, taskId);
             return true;
+        }
     
+        logger.LogTrace("User {UserId} does not have permission to manage task {TaskId}", userId, taskId);
         return false;
     }
 }

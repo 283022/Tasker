@@ -87,10 +87,10 @@ namespace src.Migrations
                         {
                             b1.IsRequired();
 
-                            b1.Property<string>("Value")
+                            b1.Property<string>("HashPassword")
                                 .IsRequired()
-                                .HasMaxLength(254)
-                                .HasColumnType("character varying(254)")
+                                .HasMaxLength(256)
+                                .HasColumnType("character varying(256)")
                                 .HasColumnName("Password_Value");
                         });
 

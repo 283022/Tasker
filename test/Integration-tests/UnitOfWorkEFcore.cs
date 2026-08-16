@@ -1,7 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using src;
 using src.Db;
 using src.Repository;
+using src.Service;
 using src.UnitOfWork;
 
 namespace TestProject1.Integration_tests;
@@ -16,10 +18,11 @@ public class UnitOfWorkEFcoreTest
         _context = context;
         UnitOfWork = new UnitOfWorkEFcore(
             context,
-            new UserRepository(context),
-            new UserTaskRepository(context),
-            new TeamRepository(context),
-            new TeamMemberRepository(context)
+            new UserRepository(context,new NullLogger<UserRepository>()),
+            new UserTaskRepository(context,new NullLogger<UserTaskRepository>()),
+            new TeamRepository(context,new NullLogger<TeamRepository>()),
+            new TeamMemberRepository(context,new NullLogger<TeamMemberRepository>()),
+            new NullLogger<UnitOfWorkEFcore>()
         );
     }
 

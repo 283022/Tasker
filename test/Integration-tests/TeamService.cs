@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using src;
 using src.Db;
 using src.Domain.Entities;
@@ -44,7 +45,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var user = await CreateAndSaveUserAsync(context);
         var dto = new CreateTeamDto("Test Team");
@@ -64,7 +65,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var user = await CreateAndSaveUserAsync(context);
         var dto = new CreateTeamDto("");
@@ -81,7 +82,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var admin = await CreateAndSaveUserAsync(context, "Admin", "admin5@test.com");
         var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
@@ -102,7 +103,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var admin = await CreateAndSaveUserAsync(context, "Admin", "admin6@test.com");
         var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
@@ -127,7 +128,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var admin = await CreateAndSaveUserAsync(context, "Admin", "admin7@test.com");
         var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
@@ -152,7 +153,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var admin = await CreateAndSaveUserAsync(context, "Admin", "admin8@test.com");
         var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
@@ -178,7 +179,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var admin = await CreateAndSaveUserAsync(context, "Admin", "admin9@test.com");
         var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
@@ -204,7 +205,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var admin1 = await CreateAndSaveUserAsync(context, "Admin1", "admin10@test.com");
         var admin2 = await CreateAndSaveUserAsync(context, "Admin2", "admin11@test.com");
@@ -236,7 +237,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var admin = await CreateAndSaveUserAsync(context, "Admin", "admin12@test.com");
         var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
@@ -258,7 +259,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var admin = await CreateAndSaveUserAsync(context, "Admin", "admin13@test.com");
         var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
@@ -281,7 +282,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var admin = await CreateAndSaveUserAsync(context, "Admin", "admin14@test.com");
         var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
@@ -307,7 +308,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var admin = await CreateAndSaveUserAsync(context, "Admin", "admin15@test.com");
         var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
@@ -333,7 +334,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var admin = await CreateAndSaveUserAsync(context, "Admin", "admin16@test.com");
         var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));
@@ -363,7 +364,7 @@ public class TeamServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var teamService = new TeamService(unitOfWork.UnitOfWork);
+        var teamService = new TeamService(unitOfWork.UnitOfWork,new NullLogger<TeamService>());
 
         var admin = await CreateAndSaveUserAsync(context, "Admin", "admin17@test.com");
         var createTeamResult = await teamService.CreateAsync(admin.Id, new CreateTeamDto("Test Team"));

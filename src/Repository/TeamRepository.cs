@@ -4,60 +4,79 @@ using src.Domain.Entities;
 
 namespace src.Repository;
 
-public class TeamRepository(ApplicationContext context) : ITeamRepository
+public class TeamRepository(ApplicationContext context, ILogger<TeamRepository> logger) : ITeamRepository
 {
-    private readonly ApplicationContext _context = context;
-
     public async Task AddTeamAsync(Team team)
     {
-        await _context.Teams.AddAsync(team);
-        // SaveChangesAsync вызывается в UnitOfWork
+        logger.LogDebug("Adding new team '{TeamName}'", team.Name);
+        await context.Teams.AddAsync(team);
     }
 
     public async Task DeleteTeamAsync(Team team)
     {
-        _context.Teams.Remove(team);
-        // SaveChangesAsync вызывается в UnitOfWork
+        logger.LogDebug("Deleting team {TeamId} '{TeamName}'", team.Id, team.Name);
+        context.Teams.Remove(team);
     }
 
     public async Task<IEnumerable<Team>> GetAllTeamsAsync()
     {
-        return await _context.Teams
+        logger.LogTrace("Fetching all teams");
+        return await context.Teams
             .AsNoTracking()
             .ToListAsync();
     }
 
     public async Task<IEnumerable<Team>> GetTeamsByUserIdAsync(Guid userId)
     {
-        return await _context.Teams
+        logger.LogDebug("Fetching teams for user {UserId}", userId);
+        var teams = await context.Teams
             .Where(t => t.Members.Any(m => m.UserId == userId))
             .AsNoTracking()
             .ToListAsync();
+        
+        logger.LogDebug("Found {Count} teams for user {UserId}", teams.Count, userId);
+        return teams;
     }
 
     public async Task<Team?> GetTeamWithMembersAsync(Guid teamId)
     {
-        return await _context.Teams
+        logger.LogDebug("Fetching team {TeamId} with members", teamId);
+        var team = await context.Teams
             .Include(t => t.Members)
             .ThenInclude(m => m.User)
             .FirstOrDefaultAsync(t => t.Id == teamId);
+        
+        if (team is null)
+            logger.LogDebug("Team {TeamId} not found", teamId);
+        else
+            logger.LogDebug("Team {TeamId} found with {MemberCount} members", teamId, team.Members?.Count ?? 0);
+        
+        return team;
     }
 
     public async Task<Team?> GetTeamByIdAsync(Guid teamId)
     {
-        return await _context.Teams
+        logger.LogDebug("Fetching team by id {TeamId}", teamId);
+        var team = await context.Teams
             .FirstOrDefaultAsync(t => t.Id == teamId);
+        
+        if (team is null)
+            logger.LogDebug("Team {TeamId} not found", teamId);
+        
+        return team;
     }
     
     public async Task<bool> IsUserAdminOfTeamAsync(Guid userId, Guid teamId)
     {
-        return await _context.TeamMembers
-            .AnyAsync(m => m.UserId == userId && m.TeamId == teamId && m.IsAdmin == true);
+        logger.LogTrace("Checking if user {UserId} is admin of team {TeamId}", userId, teamId);
+        return await context.TeamMembers
+            .AnyAsync(m => m.UserId == userId && m.TeamId == teamId && m.IsAdmin);
     }
 
     public async Task<bool> IsUserInTeamAsync(Guid userId, Guid teamId)
     {
-        return await _context.TeamMembers
+        logger.LogTrace("Checking if user {UserId} is in team {TeamId}", userId, teamId);
+        return await context.TeamMembers
             .AnyAsync(m => m.UserId == userId && m.TeamId == teamId);
     }
 }

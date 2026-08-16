@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using src;
 using src.Db;
 using src.Domain.Entities;
@@ -52,7 +53,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork);
+        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
 
         var user = CreateAndSaveUser(context);
         var dto = new CreateTaskDto("My Personal Task", null, null);
@@ -73,7 +74,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork);
+        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
 
         var admin = CreateAndSaveUser(context, "Admin", "admin@test.com");
         var team = CreateAndSaveTeam(context, admin.Id, "Test Team");
@@ -96,7 +97,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork);
+        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
 
         var admin = CreateAndSaveUser(context, "Admin", "admin2@test.com");
         var team = CreateAndSaveTeam(context, admin.Id, "Test Team");
@@ -118,7 +119,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork);
+        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
 
         var user = CreateAndSaveUser(context);
         var team = CreateAndSaveTeam(context, user.Id);
@@ -136,7 +137,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork);
+        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
 
         var user = CreateAndSaveUser(context);
         var task = UserTask.Create("Task to delete", user.Id).Value;
@@ -155,7 +156,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork);
+        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
 
         var author = CreateAndSaveUser(context, "Author");
         var otherUser = CreateAndSaveUser(context, "OtherUser");
@@ -175,7 +176,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork);
+        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
 
         var user = CreateAndSaveUser(context);
         var task1 = UserTask.Create("Task 1", user.Id).Value;
@@ -194,7 +195,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork);
+        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
 
         var user = CreateAndSaveUser(context);
         var task = UserTask.Create("Task", user.Id).Value;
@@ -213,7 +214,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork);
+        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
 
         var author = CreateAndSaveUser(context, "Author");
         var otherUser = CreateAndSaveUser(context, "OtherUser");
@@ -233,7 +234,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork);
+        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
 
         var user = CreateAndSaveUser(context);
         var task = UserTask.Create("Old Name", user.Id).Value;
@@ -253,7 +254,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork);
+        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
 
         var admin = CreateAndSaveUser(context, "Admin", "admin3@test.com");
         var team = CreateAndSaveTeam(context, admin.Id, "Test Team");
@@ -277,7 +278,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork);
+        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
 
         var admin = CreateAndSaveUser(context, "Admin", "admin4@test.com");
         var team = CreateAndSaveTeam(context, admin.Id, "Test Team");
@@ -303,7 +304,7 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     {
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork);
+        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
 
         var admin = CreateAndSaveUser(context, "Admin", "admin5@test.com");
         var team = CreateAndSaveTeam(context, admin.Id, "Test Team");
