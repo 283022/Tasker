@@ -13,7 +13,7 @@ public class Passwordhasher : IPasswordHasher
 
     public bool Verify(string password, string hash)
     {
-        var boolean = BCrypt.Net.BCrypt.Verify(password, Hash(password));
+        var boolean = BCrypt.Net.BCrypt.Verify(password, hash);
         return boolean;
     }
 }
