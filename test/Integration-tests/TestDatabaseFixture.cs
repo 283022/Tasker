@@ -1,171 +1,58 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using src.Db;
 
-namespace TestProject1.Integration_tests;
-
-public class TestDatabaseFixture : IDisposable, IAsyncDisposable
+public class TestDatabaseFixture : IAsyncLifetime
 {
-    private const string ConnectionString =
-        @"Host=localhost;Port=5432;Database=TestDb;Username=postgres;Password=darkrock4;Include Error Detail=true";
-    
-    private ApplicationContext _context;
-    private bool _disposed;
-    private static readonly object _lock = new object();
-
-    public TestDatabaseFixture()
-    {
-        lock (_lock)
-        {
-            _context = CreateContext();
-            _context.Database.EnsureDeleted();
-            _context.Database.EnsureCreated();
-        }
-    }
+    private const string ConnectionString = @"Host=localhost;Port=5432;Database=TestDb;Username=postgres;Password=darkrock4;Include Error Detail=true";
 
     public ApplicationContext CreateContext()
     {
         var options = new DbContextOptionsBuilder<ApplicationContext>()
             .UseNpgsql(ConnectionString)
             .Options;
-        
         return new ApplicationContext(options);
     }
 
-    public ApplicationContext CreateNewContext()
+    public async Task InitializeAsync()
     {
-        return CreateContext();
+        await using var context = CreateContext();
+        
+        // Полностью удаляем базу данных
+        await context.Database.EnsureDeletedAsync();
+        
+        // Создаем базу данных заново
+        await context.Database.EnsureCreatedAsync();
     }
 
-    public void CleanDatabase()
+    public Task DisposeAsync()
     {
-        try
-        {
-            using var context = CreateNewContext();
-            context.Database.ExecuteSqlRaw(@"
-                DO $$ 
-                BEGIN
-                    EXECUTE 'SET session_replication_role = replica';
-                    
-                    TRUNCATE TABLE ""UserTasks"" CASCADE;
-                    TRUNCATE TABLE ""TeamMembers"" CASCADE;
-                    TRUNCATE TABLE ""Tasks"" CASCADE;
-                    TRUNCATE TABLE ""Teams"" CASCADE;
-                    TRUNCATE TABLE ""Users"" CASCADE;
-                    
-                    EXECUTE 'SET session_replication_role = origin';
-                END $$;
-            ");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"CleanDatabase error: {ex.Message}");
-            try
-            {
-                _context.Database.EnsureDeleted();
-                _context.Database.EnsureCreated();
-            }
-            catch
-            {
-                // Игнорируем
-            }
-        }
+        return Task.CompletedTask;
     }
 
     public async Task CleanDatabaseAsync()
     {
-        try
-        {
-            await using var context = CreateNewContext();
-            await context.Database.ExecuteSqlRawAsync(@"
-                DO $$ 
-                BEGIN
-                    EXECUTE 'SET session_replication_role = replica';
-                    
-                    TRUNCATE TABLE ""UserTasks"" CASCADE;
-                    TRUNCATE TABLE ""TeamMembers"" CASCADE;
-                    TRUNCATE TABLE ""Tasks"" CASCADE;
-                    TRUNCATE TABLE ""Teams"" CASCADE;
-                    TRUNCATE TABLE ""Users"" CASCADE;
-                    
-                    EXECUTE 'SET session_replication_role = origin';
-                END $$;
-            ");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"CleanDatabaseAsync error: {ex.Message}");
-            try
-            {
-                await _context.Database.EnsureDeletedAsync();
-                await _context.Database.EnsureCreatedAsync();
-            }
-            catch
-            {
-                // Игнорируем
-            }
-        }
-    }
-
-    // ✅ Вспомогательный метод для создания чистого контекста
-    public async Task<ApplicationContext> GetCleanContextAsync()
-    {
-        var context = CreateNewContext();
-        await CleanDatabaseAsync();
-        return context;
-    }
-
-    // ✅ Вспомогательный метод для создания UnitOfWork с новым контекстом
-    public async Task<(ApplicationContext Context, UnitOfWorkEFcoreTest UnitOfWork)> CreateCleanUnitOfWorkAsync()
-    {
-        var context = await GetCleanContextAsync();
-        var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        return (context, unitOfWork);
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (!_disposed)
-        {
-            lock (_lock)
-            {
-                try
-                {
-                    _context.Dispose();
-                }
-                catch
-                {
-                    // Игнорируем
-                }
-                finally
-                {
-                    _disposed = true;
-                }
-            }
-        }
-        GC.SuppressFinalize(this);
-        await Task.CompletedTask;
-    }
-
-    public void Dispose()
-    {
-        if (!_disposed)
-        {
-            lock (_lock)
-            {
-                try
-                {
-                    _context.Dispose();
-                }
-                catch
-                {
-                    // Игнорируем
-                }
-                finally
-                {
-                    _disposed = true;
-                }
-            }
-        }
-        GC.SuppressFinalize(this);
+        await using var context = CreateContext();
+        
+        // Отключаем проверку внешних ключей
+        await context.Database.ExecuteSqlRawAsync("SET session_replication_role = 'replica';");
+        
+        // Очищаем все таблицы в правильном порядке
+        await context.Database.ExecuteSqlRawAsync(@"
+            DO $$ 
+            DECLARE
+                table_name text;
+            BEGIN
+                FOR table_name IN 
+                    SELECT tablename FROM pg_tables 
+                    WHERE schemaname = 'public' 
+                    AND tablename NOT IN ('__EFMigrationsHistory')
+                LOOP
+                    EXECUTE format('TRUNCATE TABLE %I CASCADE', table_name);
+                END LOOP;
+            END $$;
+        ");
+        
+        // Включаем обратно проверку внешних ключей
+        await context.Database.ExecuteSqlRawAsync("SET session_replication_role = 'origin';");
     }
 }
