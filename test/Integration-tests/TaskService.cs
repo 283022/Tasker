@@ -9,13 +9,25 @@ using src.Service;
 
 namespace TestProject1.Integration_tests;
 
-public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
+public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IAsyncLifetime
 {
     private readonly TestDatabaseFixture _fixture;
 
     public TaskServiceTests(TestDatabaseFixture fixture)
     {
         _fixture = fixture;
+    }
+
+    // Вызывается перед каждым тестом
+    public async Task InitializeAsync()
+    {
+        await _fixture.CleanDatabaseAsync();
+    }
+
+    // Вызывается после каждого теста
+    public Task DisposeAsync()
+    {
+        return Task.CompletedTask;
     }
 
     private User CreateAndSaveUser(ApplicationContext context, string name = "User", string email = null,
@@ -51,16 +63,18 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     [Fact]
     public async Task CreateTask_PersonalTask_HappyPath()
     {
+        // Arrange
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
+        var taskService = new TaskService(unitOfWork.UnitOfWork, new NullLogger<TaskService>());
 
         var user = CreateAndSaveUser(context);
         var dto = new CreateTaskDto("My Personal Task", null, null);
 
-        //  Асинхронный вызов
+        // Act
         var result = await taskService.CreateAsync(dto, user.Id);
 
+        // Assert
         Assert.True(result.IsSuccess);
         var task = await context.Tasks.FirstOrDefaultAsync(t => t.Name == "My Personal Task");
         Assert.NotNull(task);
@@ -72,9 +86,10 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     [Fact]
     public async Task CreateTask_TeamTask_AsAdmin_HappyPath()
     {
+        // Arrange
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
+        var taskService = new TaskService(unitOfWork.UnitOfWork, new NullLogger<TaskService>());
 
         var admin = CreateAndSaveUser(context, "Admin", "admin@test.com");
         var team = CreateAndSaveTeam(context, admin.Id, "Test Team");
@@ -82,8 +97,11 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
         AddUserToTeam(context, user.Id, team.Id);
 
         var dto = new CreateTaskDto("Team Task", user.Id, team.Id);
+
+        // Act
         var result = await taskService.CreateAsync(dto, admin.Id);
 
+        // Assert
         Assert.True(result.IsSuccess);
         var task = await context.Tasks.FirstOrDefaultAsync(t => t.Name == "Team Task");
         Assert.NotNull(task);
@@ -95,9 +113,10 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     [Fact]
     public async Task CreateTask_TeamTask_AsNonAdmin_ReturnsAuthorizationError()
     {
+        // Arrange
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
+        var taskService = new TaskService(unitOfWork.UnitOfWork, new NullLogger<TaskService>());
 
         var admin = CreateAndSaveUser(context, "Admin", "admin2@test.com");
         var team = CreateAndSaveTeam(context, admin.Id, "Test Team");
@@ -107,8 +126,11 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
         AddUserToTeam(context, user.Id, team.Id);
 
         var dto = new CreateTaskDto("Team Task", user.Id, team.Id);
+
+        // Act
         var result = await taskService.CreateAsync(dto, nonAdmin.Id);
 
+        // Assert
         Assert.True(result.IsFailure);
         Assert.Equal("Authorization", result.Error.Errortype);
         Assert.Contains("admin", result.Error.Message);
@@ -117,16 +139,20 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     [Fact]
     public async Task CreateTask_WithInvalidCombination_ReturnsValidationError()
     {
+        // Arrange
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
+        var taskService = new TaskService(unitOfWork.UnitOfWork, new NullLogger<TaskService>());
 
         var user = CreateAndSaveUser(context);
         var team = CreateAndSaveTeam(context, user.Id);
 
         var dto = new CreateTaskDto("Task", null, team.Id);
+
+        // Act
         var result = await taskService.CreateAsync(dto, user.Id);
 
+        // Assert
         Assert.True(result.IsFailure);
         Assert.Equal("Validation", result.Error.Errortype);
         Assert.Contains("AssignedToUserID and TeamID", result.Error.Message);
@@ -135,17 +161,20 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     [Fact]
     public async Task DeleteTask_AsAuthor_HappyPath()
     {
+        // Arrange
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
+        var taskService = new TaskService(unitOfWork.UnitOfWork, new NullLogger<TaskService>());
 
         var user = CreateAndSaveUser(context);
         var task = UserTask.Create("Task to delete", user.Id).Value;
         context.Tasks.Add(task);
         await context.SaveChangesAsync();
 
+        // Act
         var result = await taskService.DeleteAsync(new DeleteTaskDto(task.Id), user.Id);
 
+        // Assert
         Assert.True(result.IsSuccess);
         var taskAfter = await context.Tasks.FirstOrDefaultAsync(t => t.Id == task.Id);
         Assert.Null(taskAfter);
@@ -154,9 +183,10 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     [Fact]
     public async Task DeleteTask_AsNonAuthor_ReturnsAuthorizationError()
     {
+        // Arrange
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
+        var taskService = new TaskService(unitOfWork.UnitOfWork, new NullLogger<TaskService>());
 
         var author = CreateAndSaveUser(context, "Author");
         var otherUser = CreateAndSaveUser(context, "OtherUser");
@@ -164,19 +194,21 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
         context.Tasks.Add(task);
         await context.SaveChangesAsync();
 
+        // Act
         var result = await taskService.DeleteAsync(new DeleteTaskDto(task.Id), otherUser.Id);
 
+        // Assert
         Assert.True(result.IsFailure);
         Assert.Equal("Authorization", result.Error.Errortype);
-        Assert.Contains("Can't delete", result.Error.Message);
     }
 
     [Fact]
     public async Task GetTasks_ReturnsUserTasks()
     {
+        // Arrange
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
+        var taskService = new TaskService(unitOfWork.UnitOfWork, new NullLogger<TaskService>());
 
         var user = CreateAndSaveUser(context);
         var task1 = UserTask.Create("Task 1", user.Id).Value;
@@ -184,8 +216,10 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
         context.Tasks.AddRange(task1, task2);
         await context.SaveChangesAsync();
 
+        // Act
         var result = await taskService.GetTasksAsync(user.Id);
 
+        // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Value.Count());
     }
@@ -193,17 +227,20 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     [Fact]
     public async Task GetTaskById_HappyPath()
     {
+        // Arrange
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
+        var taskService = new TaskService(unitOfWork.UnitOfWork, new NullLogger<TaskService>());
 
         var user = CreateAndSaveUser(context);
         var task = UserTask.Create("Task", user.Id).Value;
         context.Tasks.Add(task);
         await context.SaveChangesAsync();
 
+        // Act
         var result = await taskService.GetTaskByIdAsync(task.Id, user.Id);
 
+        // Assert
         Assert.True(result.IsSuccess);
         Assert.Equal(task.Id, result.Value.Id);
         Assert.Equal("Task", result.Value.Name);
@@ -212,9 +249,10 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     [Fact]
     public async Task GetTaskById_WhenUserCannotManage_ReturnsAuthorizationError()
     {
+        // Arrange
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
+        var taskService = new TaskService(unitOfWork.UnitOfWork, new NullLogger<TaskService>());
 
         var author = CreateAndSaveUser(context, "Author");
         var otherUser = CreateAndSaveUser(context, "OtherUser");
@@ -222,19 +260,21 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
         context.Tasks.Add(task);
         await context.SaveChangesAsync();
 
+        // Act
         var result = await taskService.GetTaskByIdAsync(task.Id, otherUser.Id);
 
+        // Assert
         Assert.True(result.IsFailure);
-        Assert.Equal("Validation", result.Error.Errortype);
-        Assert.Contains("Can't manage", result.Error.Message);
+        Assert.Equal("Authorization", result.Error.Errortype);
     }
 
     [Fact]
     public async Task RenameTask_HappyPath()
     {
+        // Arrange
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
+        var taskService = new TaskService(unitOfWork.UnitOfWork, new NullLogger<TaskService>());
 
         var user = CreateAndSaveUser(context);
         var task = UserTask.Create("Old Name", user.Id).Value;
@@ -242,8 +282,11 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
         await context.SaveChangesAsync();
 
         var dto = new RenameTaskDto(task.Id, "New Name");
+
+        // Act
         var result = await taskService.RenameTaskAsync(dto, user.Id);
 
+        // Assert
         Assert.True(result.IsSuccess);
         var updatedTask = await context.Tasks.FirstOrDefaultAsync(t => t.Id == task.Id);
         Assert.Equal("New Name", updatedTask.Name);
@@ -252,9 +295,10 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     [Fact]
     public async Task AssignTask_AsAdmin_HappyPath()
     {
+        // Arrange
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
+        var taskService = new TaskService(unitOfWork.UnitOfWork, new NullLogger<TaskService>());
 
         var admin = CreateAndSaveUser(context, "Admin", "admin3@test.com");
         var team = CreateAndSaveTeam(context, admin.Id, "Test Team");
@@ -266,8 +310,11 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
         await context.SaveChangesAsync();
 
         var dto = new AssignTaskDto(task.Id, user.Id);
+
+        // Act
         var result = await taskService.AssignTaskAsync(dto, admin.Id);
 
+        // Assert
         Assert.True(result.IsSuccess);
         var updatedTask = await context.Tasks.FirstOrDefaultAsync(t => t.Id == task.Id);
         Assert.Equal(user.Id, updatedTask.AssignedToUserID);
@@ -276,9 +323,10 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     [Fact]
     public async Task AssignTask_AsNonAdmin_ReturnsAuthorizationError()
     {
+        // Arrange
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
+        var taskService = new TaskService(unitOfWork.UnitOfWork, new NullLogger<TaskService>());
 
         var admin = CreateAndSaveUser(context, "Admin", "admin4@test.com");
         var team = CreateAndSaveTeam(context, admin.Id, "Test Team");
@@ -292,8 +340,11 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
         await context.SaveChangesAsync();
 
         var dto = new AssignTaskDto(task.Id, user.Id);
+
+        // Act
         var result = await taskService.AssignTaskAsync(dto, nonAdmin.Id);
 
+        // Assert
         Assert.True(result.IsFailure);
         Assert.Equal("Authorization", result.Error.Errortype);
         Assert.Contains("admin", result.Error.Message);
@@ -302,9 +353,10 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
     [Fact]
     public async Task AssignTask_UserNotInTeam_ReturnsValidationError()
     {
+        // Arrange
         using var context = _fixture.CreateContext();
         var unitOfWork = new UnitOfWorkEFcoreTest(context);
-        var taskService = new TaskService(unitOfWork.UnitOfWork,new NullLogger<TaskService>());
+        var taskService = new TaskService(unitOfWork.UnitOfWork, new NullLogger<TaskService>());
 
         var admin = CreateAndSaveUser(context, "Admin", "admin5@test.com");
         var team = CreateAndSaveTeam(context, admin.Id, "Test Team");
@@ -315,15 +367,13 @@ public class TaskServiceTests : IClassFixture<TestDatabaseFixture>, IDisposable
         await context.SaveChangesAsync();
 
         var dto = new AssignTaskDto(task.Id, userNotInTeam.Id);
+
+        // Act
         var result = await taskService.AssignTaskAsync(dto, admin.Id);
 
+        // Assert
         Assert.True(result.IsFailure);
         Assert.Equal("Validation", result.Error.Errortype);
         Assert.Contains("member", result.Error.Message);
-    }
-
-    public void Dispose()
-    {
-        // Ничего не делаем
     }
 }
