@@ -18,8 +18,8 @@ public class User
 
     public static Result<User> Create(string Name, Email Email, Password Password)
     {
-        if(string.IsNullOrEmpty(Name.Trim())) return new Error("Validation", "Name cannot be null or empty"); 
-        
+        if(string.IsNullOrEmpty(Name)) return new Error("Validation", "Name cannot be null or empty"); 
+        if (Name.Trim().Length == 0) return new Error("Validation", "Name cannot be empty");
         return new User(Name, Email, Password);
     }
     
