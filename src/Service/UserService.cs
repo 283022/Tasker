@@ -23,6 +23,9 @@ public class UserService(
         var email = Email.Create(request.Email);
         var password = Password.Create(request.Password, passwordHasher);
 
+        if (request.Name is null)
+            return Result.Failure(Errors.Validation("Name cannot be null.", "name"));
+
         if (email.IsFailure)
         {
             logger.LogWarning("Registration failed: invalid email format {Email}", request.Email);
@@ -54,7 +57,7 @@ public class UserService(
         await unitOfWork.UserRepository.AddUserAsync(user);
         await unitOfWork.SaveChangesAsync();
 
-        logger.LogInformation("User registered successfully: {UserId}, email {Email}", 
+        logger.LogInformation("User registered successfully: {UserId}, email {Email}",
             user.Id, user.Email.Value);
 
         return Result.Success();
@@ -90,10 +93,11 @@ public class UserService(
             return Result<User>.Failure(Errors.NotFound($"User with email '{email.Value.Value}' not found."));
         }
 
-        var password = Password.Create(request.Password, passwordHasher);
-        if (user.Password.HashPassword != password.Value.HashPassword)
+        var result = passwordHasher.Verify(request.Password, user.Password.HashPassword);
+        
+        if (!result)
         {
-            logger.LogWarning("Login failed: invalid password for user {UserId} with email {Email}", 
+            logger.LogWarning("Login failed: invalid password for user {UserId} with email {Email}",
                 user.Id, request.Email);
             return Result<User>.Failure(Errors.Unauthorized());
         }
@@ -146,7 +150,7 @@ public class UserService(
 
     public async Task<Result> DeleteUserAsync(DeleteUserDto request, Guid userId)
     {
-        logger.LogInformation("Delete user request for user {TargetUserId} by user {CurrentUserId}", 
+        logger.LogInformation("Delete user request for user {TargetUserId} by user {CurrentUserId}",
             request?.id, userId);
 
         if (userId == Guid.Empty)
@@ -176,7 +180,8 @@ public class UserService(
 
         if (user.Id != userId)
         {
-            logger.LogWarning("Delete user failed: user {CurrentUserId} attempted to delete another user {TargetUserId}", 
+            logger.LogWarning(
+                "Delete user failed: user {CurrentUserId} attempted to delete another user {TargetUserId}",
                 userId, request.id);
             return Result.Failure(Errors.Forbidden("You can only delete your own account."));
         }
