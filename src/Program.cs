@@ -37,20 +37,23 @@ builder.Services.AddSwaggerGen(c =>
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddSerilog();
-
-builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 
+//Session
+builder.Services.AddJwtAuthentication(builder.Configuration);
+builder.Services.AddScoped<SessionService>();
+
+//Repository
 builder.Services.AddScoped<IPasswordHasher, Passwordhasher>();
 builder.Services.AddScoped<ITeamRepository, TeamRepository>();
 builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserTaskRepository, UserTaskRepository>();
-
+builder.Services.AddScoped<SessionRepository>();
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWorkEFcore>();
 
-
+//Services
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<TeamService>();

@@ -10,6 +10,8 @@ public class ApplicationContext(DbContextOptions<ApplicationContext> options) : 
     public DbSet<User> Users { get; set; }
     public DbSet<UserTask> Tasks { get; set; }
     
+    public DbSet<Session> Sessions {get; set;}
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationContext).Assembly);

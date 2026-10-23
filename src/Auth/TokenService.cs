@@ -1,5 +1,6 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -12,7 +13,8 @@ public class TokenService
     private readonly IConfiguration _configuration;
     private readonly TokenValidationParameters _validationParameters;
     private readonly SymmetricSecurityKey _securityKey;
-    private readonly int _expiryMinutes;
+    private readonly int _expiryMinutesToken;
+    private readonly int _expiryDaysRefresh;
     private readonly string? _issuer;
     private readonly string? _audience;
 
@@ -27,7 +29,8 @@ public class TokenService
                         ?? throw new InvalidOperationException(AuthConstants.ErrorSecretNotConfigured);
 
         _securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
-        _expiryMinutes = configuration.GetValue<int>(AuthConstants.JwtExpiryMinutesConfigPath, 15);
+        _expiryMinutesToken = configuration.GetValue<int>(AuthConstants.JwtExpiryMinutesConfigPath, 15);
+        _expiryDaysRefresh = configuration.GetValue<int>("Auth:RefreshTokenExpiryDays", 30);
         _issuer = configuration.GetValue<string?>(AuthConstants.JwtIssuerConfigPath);
         _audience = configuration.GetValue<string?>(AuthConstants.JwtAudienceConfigPath);
     }
@@ -47,7 +50,7 @@ public class TokenService
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddMinutes(_expiryMinutes),
+            Expires = DateTime.UtcNow.AddMinutes(_expiryMinutesToken),
             SigningCredentials = new SigningCredentials(_securityKey, SecurityAlgorithms.HmacSha256),
             Issuer = _issuer,
             Audience = _audience
@@ -57,7 +60,13 @@ public class TokenService
         var token = tokenHandler.CreateToken(tokenDescriptor);
         return tokenHandler.WriteToken(token);
     }
-
+    
+    //TODO: протестировать
+    public string GenerateRefreshToken()
+    {
+         return Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+    }
+    
     public Result<Guid> ValidateToken(string token)
     {
         if (string.IsNullOrWhiteSpace(token))
@@ -131,21 +140,25 @@ public class TokenService
         return ValidateToken(token);
     }
 
-    public int GetTokenExpiryMinutes() => _expiryMinutes;
+    public int GetTokenExpiryMinutes() => _expiryMinutesToken;
 
-    public (string Token, CookieOptions Options) GenerateTokenWithCookie(Guid userId)
+    //TODO: протестировать
+    public (string Token,string RefreshToken, CookieOptions Options) GenerateTokenWithCookie(Guid userId)
     {
         var token = GenerateToken(userId);
-
+        var refreshToken = GenerateRefreshToken();
+        
         var options = new CookieOptions
         {
             HttpOnly = true,
             Secure = true,
             SameSite = SameSiteMode.Strict,
-            Expires = DateTime.UtcNow.AddMinutes(_expiryMinutes),
+            Expires = DateTime.UtcNow.AddMinutes(_expiryMinutesToken),
             Path = "/"
         };
 
-        return (token, options);
+        return (token,refreshToken, options);
     }
+    
+    public int GetRefreshTokenExpiryDays() => _expiryDaysRefresh;
 }

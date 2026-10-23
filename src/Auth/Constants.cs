@@ -3,12 +3,12 @@
 public static class AuthConstants
 {
     public const string AuthTokenCookieName = "auth_token";
+    public const string RefreshTokenCookieName ="refresh_token"; 
     public const string JwtSecretKeyConfigPath = "JwtBearer:TokenSecurity";
     public const string JwtExpiryMinutesConfigPath = "JwtBearer:TokenExpiryMinutes";
     public const string JwtIssuerConfigPath = "JwtBearer:Issuer";
     public const string JwtAudienceConfigPath = "JwtBearer:Audience";
     public const string UserIdClaimType = "id";
-    
     public const string AuthScheme = "Bearer";
     public const string AuthSchemeDisplayName = "Bearer";
     

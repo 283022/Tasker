@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using src.Auth;
+using src.Domain;
 using src.InfrastructError;
 using src.Service;
 
@@ -16,18 +17,18 @@ public static class Endpoints
         var userGroup = group.MapGroup("users").WithTags("users");
         var taskGroup = group.MapGroup("tasks").WithTags("tasks");
         var teamGroup = group.MapGroup("teams").WithTags("teams");
-
+        
         ConfigureAuthEndpoints(authGroup);
         ConfigureUserEndpoints(userGroup);
         ConfigureTaskEndpoints(taskGroup);
         ConfigureTeamEndpoints(teamGroup);
-
+        
         return app;
     }
 
     
     // AUTH ENDPOINTS
-    
+
 
     private static void ConfigureAuthEndpoints(RouteGroupBuilder authGroup)
     {
@@ -47,30 +48,158 @@ public static class Endpoints
             .ProducesProblem(409)
             .ProducesProblem(500);
 
+       
+        
         authGroup.MapPost("login", async (
                 [FromBody] LoginUserDto request,
                 HttpContext context,
                 [FromServices] UserService userService,
-                [FromServices] TokenService tokenService) =>
+                [FromServices] SessionService sessionService,
+                [FromServices] TokenService tokenService,
+                CancellationToken cancellationToken) =>
             {
                 var loginResult = await userService.UserLoginAsync(request);
+
                 if (loginResult.IsFailure)
                     return loginResult.ToHttpResult();
 
                 var user = loginResult.Value;
-                var (token, cookieOptions) = tokenService.GenerateTokenWithCookie(user.Id);
-                context.Response.Cookies.Append(AuthConstants.AuthTokenCookieName, token, cookieOptions);
+
+                var sessionResult = await sessionService.CreateAsync(
+                    user.Id,
+                    cancellationToken);
+
+                if (sessionResult.IsFailure)
+                    return sessionResult.ToHttpResult();
+
+                var tokens = sessionResult.Value;
+                var cookieOptions = CreateCookieOptions(context);
+
+                context.Response.Cookies.Append(
+                    AuthConstants.AuthTokenCookieName,
+                    tokens.AccessToken,
+                    new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = context.Request.IsHttps,
+                        SameSite = SameSiteMode.Lax,
+                        Path = "/",
+                        Expires = DateTimeOffset.UtcNow.AddMinutes(
+                            tokenService.GetTokenExpiryMinutes())
+                    });
+
+                context.Response.Cookies.Append(
+                    AuthConstants.RefreshTokenCookieName,
+                    tokens.RefreshToken,
+                    new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = context.Request.IsHttps,
+                        SameSite = SameSiteMode.Lax,
+                        Path = "/",
+                        Expires = tokens.RefreshTokenExpiresAt
+                    });
 
                 return Results.Ok(new { message = "Login successful" });
             })
+            .WithSummary("Login user")
             .Produces(200)
             .ProducesProblem(400)
-            .ProducesProblem(401)
-            .ProducesProblem(404)
-            .ProducesProblem(500)
-            .WithSummary("Login user")
-            .WithDescription(
-                "Authenticates user and sets JWT cookie. The token is automatically included in subsequent requests.");
+            .ProducesProblem(401);
+        
+        authGroup.MapPost("refresh", async (
+                HttpContext context,
+                [FromServices] SessionService sessionService,
+                [FromServices] TokenService tokenService,
+                CancellationToken cancellationToken) =>
+            {
+                context.Request.Cookies.TryGetValue(AuthConstants.RefreshTokenCookieName, out var refreshToken);
+             
+                if (string.IsNullOrWhiteSpace(refreshToken))
+                    return Results.Unauthorized();
+
+                var refreshResult = await sessionService.RefreshAsync(
+                    refreshToken,
+                    cancellationToken);
+
+                if (refreshResult.IsFailure)
+                    return refreshResult.ToHttpResult();
+
+                var tokens = refreshResult.Value;
+
+                context.Response.Cookies.Append(
+                    AuthConstants.AuthTokenCookieName,
+                    tokens.AccessToken,
+                    new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = context.Request.IsHttps,
+                        SameSite = SameSiteMode.Lax,
+                        Path = "/",
+                        Expires = DateTimeOffset.UtcNow.AddMinutes(
+                            tokenService.GetTokenExpiryMinutes())
+                    });
+
+                context.Response.Cookies.Append(
+                    AuthConstants.RefreshTokenCookieName,
+                    tokens.RefreshToken,
+                    new CookieOptions
+                    {
+                        HttpOnly = true,
+                        Secure = context.Request.IsHttps,
+                        SameSite = SameSiteMode.Lax,
+                        Path = "/",
+                        Expires = tokens.RefreshTokenExpiresAt
+                    });
+
+                return Results.NoContent();
+            })
+            .WithSummary("Refresh authentication tokens")
+            .Produces(204)
+            .Produces(401);
+
+        authGroup.MapPost("logout", async (
+                HttpContext context,
+                [FromServices] SessionService sessionService,
+                CancellationToken cancellationToken) =>
+            {
+                context.Request.Cookies.TryGetValue(AuthConstants.RefreshTokenCookieName, out var refreshToken);
+                
+                var result = await sessionService.LogoutAsync(
+                    refreshToken,
+                    cancellationToken);
+
+                if (result.IsFailure)
+                    return result.ToHttpResult();
+
+                var cookieOptions = CreateCookieOptions(context);
+
+                context.Response.Cookies.Delete(
+                    AuthConstants.AuthTokenCookieName,
+                    cookieOptions);
+
+                context.Response.Cookies.Delete(
+                    AuthConstants.RefreshTokenCookieName,
+                    cookieOptions);
+
+                return Results.NoContent();
+            })
+            .WithSummary("Logout user")
+            .Produces(204);
+        
+        
+    }
+    
+    private static CookieOptions CreateCookieOptions(
+        HttpContext context)
+    {
+        return new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = context.Request.IsHttps,
+            SameSite = SameSiteMode.Lax,
+            Path = "/"
+        };
     }
     
     
