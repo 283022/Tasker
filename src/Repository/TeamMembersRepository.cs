@@ -54,18 +54,7 @@ public class TeamMemberRepository : ITeamMemberRepository
         return members;
     }
 
-    public async Task<IEnumerable<TeamMember>> GetByUserIdAsync(Guid userId)
-    {
-        _logger.LogDebug("Fetching all teams for user {UserId}", userId);
-        var members = await _context.TeamMembers
-            .Where(tm => tm.UserId == userId)
-            .Include(tm => tm.Team)
-            .AsNoTracking()
-            .ToListAsync();
-        
-        _logger.LogDebug("User {UserId} is a member of {Count} teams", userId, members.Count);
-        return members;
-    }
+   
 
     public async Task<bool> IsUserAdminAsync(Guid teamId, Guid userId)
     {

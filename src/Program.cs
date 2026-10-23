@@ -13,6 +13,17 @@ using src.UnitOfWork;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend",
+        policy =>
+        {
+            policy.WithOrigins("http://localhost:5173")
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+        });
+});
 
 builder.Services.AddOpenApi();
 builder.Services.AddSwaggerGen(c =>
@@ -62,6 +73,7 @@ if (app.Environment.IsDevelopment())
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Tasker API v1");
         c.RoutePrefix = "swagger"; // или оставить пустым для корня
     });
+    app.UseCors("AllowFrontend");
 }
 
 app.UseStatusCodePages();

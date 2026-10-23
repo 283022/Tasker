@@ -140,7 +140,7 @@ namespace src.Migrations
 
             modelBuilder.Entity("src.Domain.Entities.TeamMember", b =>
                 {
-                    b.HasOne("src.Domain.Entities.Team", "Team")
+                    b.HasOne("src.Domain.Entities.Team", null)
                         .WithMany("Members")
                         .HasForeignKey("TeamId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -151,8 +151,6 @@ namespace src.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Team");
 
                     b.Navigation("User");
                 });

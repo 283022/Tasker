@@ -17,7 +17,7 @@ public interface ITeamMemberRepository
     Task<IEnumerable<TeamMember>> GetByTeamIdAsync(Guid teamId);
     
     // Получить все команды пользователя
-    Task<IEnumerable<TeamMember>> GetByUserIdAsync(Guid userId);
+    
     
     // Проверить, является ли пользователь администратором команды
     Task<bool> IsUserAdminAsync(Guid teamId, Guid userId);

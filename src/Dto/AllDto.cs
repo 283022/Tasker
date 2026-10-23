@@ -79,9 +79,8 @@ public record DeleteTeamDto(
 /// <param name="UserId">ID пользователя</param>
 /// <param name="IsAdmin">Признак администратора команды</param>
 public record AddUserInTeamDto(
-    [Required] Guid TeamId,
     [Required] Guid UserId,
-    bool IsAdmin);
+    [Required] bool IsAdmin);
 
 /// <summary>
 /// DTO для удаления пользователя из команды
@@ -89,7 +88,6 @@ public record AddUserInTeamDto(
 /// <param name="TeamId">ID команды</param>
 /// <param name="UserId">ID пользователя</param>
 public record DeleteUserFromTeamDto(
-    [Required] Guid TeamId,
     [Required] Guid UserId
 );
 
@@ -128,6 +126,3 @@ public record GetTeamDto(
 /// </summary>
 /// <param name="TeamId">ID команды</param>
 /// <param name="UserId">ID пользователя</param>
-public record UpdateTeamRoleDto(
-    [Required] Guid TeamId,
-    [Required] Guid UserId);

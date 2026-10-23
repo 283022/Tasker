@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using src.Db;
 using src.Domain.Entities;
+using src.Dto;
 
 namespace src.Repository;
 
@@ -26,18 +27,22 @@ public class TeamRepository(ApplicationContext context, ILogger<TeamRepository> 
             .ToListAsync();
     }
 
-    public async Task<IEnumerable<Team>> GetTeamsByUserIdAsync(Guid userId)
+    public async Task<IEnumerable<TeamDto>> GetTeamsByUserIdAsync(Guid userId)
     {
-        logger.LogDebug("Fetching teams for user {UserId}", userId);
-        var teams = await context.Teams
-            .Where(t => t.Members.Any(m => m.UserId == userId))
-            .AsNoTracking()
+        return await context.Teams
+            .Where(team => team.Members.Any(member => member.UserId == userId))
+            .Select(team => new TeamDto(
+                team.Id,
+                team.Name,
+                team.Members
+                    .Select(member => new TeamMemberDto(
+                        member.UserId,
+                        member.IsAdmin,
+                        member.User.Name))
+                    .ToList()))
             .ToListAsync();
-        
-        logger.LogDebug("Found {Count} teams for user {UserId}", teams.Count, userId);
-        return teams;
     }
-
+    
     public async Task<Team?> GetTeamWithMembersAsync(Guid teamId)
     {
         logger.LogDebug("Fetching team {TeamId} with members", teamId);

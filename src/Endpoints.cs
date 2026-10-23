@@ -5,16 +5,10 @@ using src.Service;
 
 namespace src;
 
-/// <summary>
-/// Класс для настройки всех эндпоинтов API
-/// </summary>
+
 public static class Endpoints
 {
-    /// <summary>
-    /// Регистрирует все эндпоинты API
-    /// </summary>
-    /// <param name="app">Билдер маршрутов</param>
-    /// <returns>Билдер с зарегистрированными эндпоинтами</returns>
+
     public static IEndpointRouteBuilder AddAllEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("api/v1");
@@ -31,9 +25,9 @@ public static class Endpoints
         return app;
     }
 
-    // ============================================================
+    
     // AUTH ENDPOINTS
-    // ============================================================
+    
 
     private static void ConfigureAuthEndpoints(RouteGroupBuilder authGroup)
     {
@@ -78,10 +72,10 @@ public static class Endpoints
             .WithDescription(
                 "Authenticates user and sets JWT cookie. The token is automatically included in subsequent requests.");
     }
-
-    // ============================================================
+    
+    
     // USER ENDPOINTS
-    // ============================================================
+    
 
     private static void ConfigureUserEndpoints(RouteGroupBuilder userGroup)
     {
@@ -130,9 +124,9 @@ public static class Endpoints
             .WithDescription("Deletes a user account. Users can only delete themselves.");
     }
 
-    // ============================================================
+    
     // TASK ENDPOINTS
-    // ============================================================
+    
 
     private static void ConfigureTaskEndpoints(RouteGroupBuilder taskGroup)
     {
@@ -278,9 +272,9 @@ public static class Endpoints
             .WithDescription("Deletes a task. Only the author or a team admin can delete it.");
     }
 
-    // ============================================================
+    
     // TEAM ENDPOINTS
-    // ============================================================
+    
 
     private static void ConfigureTeamEndpoints(RouteGroupBuilder teamGroup)
     {
@@ -405,7 +399,7 @@ public static class Endpoints
                 if (userIdResult.IsFailure)
                     return Results.Unauthorized();
 
-                var result = await teamService.AddUserAsync(dto, userIdResult.Value);
+                var result = await teamService.AddUserAsync(dto,id, userIdResult.Value);
                 return result.ToHttpResult();
             })
             .RequireAuthorization()
@@ -431,7 +425,7 @@ public static class Endpoints
                     return Results.Unauthorized();
 
                 var result =
-                    await teamService.DeleteUserAsync(new DeleteUserFromTeamDto(id, userId), userIdResult.Value);
+                    await teamService.DeleteUserAsync(new DeleteUserFromTeamDto(userId), id, userIdResult.Value);
                 return result.ToHttpResult();
             })
             .RequireAuthorization()
@@ -447,7 +441,6 @@ public static class Endpoints
         teamGroup.MapPatch("/{id}/members/{userId}/role", async (
                 [FromRoute] Guid id,
                 [FromRoute] Guid userId,
-                [FromBody] UpdateTeamRoleDto dto,
                 HttpContext context,
                 [FromServices] TeamService teamService,
                 [FromServices] TokenService tokenService) =>
@@ -456,7 +449,7 @@ public static class Endpoints
                 if (userIdResult.IsFailure)
                     return Results.Unauthorized();
 
-                var result = await teamService.UpdateMemberRoleAsync(dto, userIdResult.Value);
+                var result = await teamService.UpdateMemberRoleAsync(id,userId, userIdResult.Value);
                 return result.ToHttpResult();
             })
             .RequireAuthorization()

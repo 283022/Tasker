@@ -1,5 +1,6 @@
 ﻿using src.Domain;
 using src.Domain.Entities;
+using src.Dto;
 using src.UnitOfWork;
 
 namespace src.Service;
@@ -112,10 +113,10 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
         return Result.Success();
     }
 
-    public async Task<Result> AddUserAsync(AddUserInTeamDto addUserInTeamDto, Guid userId)
+    public async Task<Result> AddUserAsync(AddUserInTeamDto addUserInTeamDto,Guid teamId, Guid userId)
     {
         logger.LogInformation("Adding user {TargetUserId} to team {TeamId} by user {UserId}",
-            addUserInTeamDto?.UserId, addUserInTeamDto?.TeamId, userId);
+            addUserInTeamDto?.UserId, teamId, userId);
 
         if (userId == Guid.Empty)
         {
@@ -129,7 +130,7 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
             return Result.Failure(Errors.Validation("Request cannot be empty."));
         }
 
-        if (addUserInTeamDto.TeamId == Guid.Empty)
+        if (teamId == Guid.Empty)
         {
             logger.LogWarning("Add user to team failed: team ID is empty");
             return Result.Failure(Errors.Validation("Team ID cannot be empty.", "teamId"));
@@ -141,11 +142,11 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
             return Result.Failure(Errors.Validation("User ID to add cannot be empty.", "userId"));
         }
 
-        var team = await unitOfWork.TeamRepository.GetTeamByIdAsync(addUserInTeamDto.TeamId);
+        var team = await unitOfWork.TeamRepository.GetTeamByIdAsync(teamId);
         if (team is null)
         {
-            logger.LogWarning("Add user to team failed: team {TeamId} not found", addUserInTeamDto.TeamId);
-            return Result.Failure(Errors.NotFound("Team", addUserInTeamDto.TeamId.ToString()));
+            logger.LogWarning("Add user to team failed: team {TeamId} not found", teamId);
+            return Result.Failure(Errors.NotFound("Team", teamId.ToString()));
         }
 
         var isUserAdminOfTeam = await unitOfWork.TeamRepository.IsUserAdminOfTeamAsync(userId, team.Id);
@@ -163,9 +164,16 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
                 addUserInTeamDto.UserId, team.Id);
             return Result.Failure(Errors.Conflict("User is already a member of this team."));
         }
-
+        
+        var isUserExist = await unitOfWork.UserRepository.GetUserByIdAsync(addUserInTeamDto.UserId);
+        if (isUserExist is null)
+        {
+            logger.LogWarning("User isn't exist {Id}",addUserInTeamDto.UserId );
+            return Result.Failure(Errors.NotFound("User isn't exist"));
+        }
+        
         var teamMember = TeamMember.Create(
-            addUserInTeamDto.TeamId,
+            teamId,
             addUserInTeamDto.UserId,
             addUserInTeamDto.IsAdmin);
 
@@ -185,10 +193,10 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
         return Result.Success();
     }
 
-    public async Task<Result> DeleteUserAsync(DeleteUserFromTeamDto deleteUserFromTeamDto, Guid userId)
+    public async Task<Result> DeleteUserAsync(DeleteUserFromTeamDto deleteUserFromTeamDto,Guid teamId, Guid userId)
     {
         logger.LogInformation("Removing user {TargetUserId} from team {TeamId} by user {UserId}",
-            deleteUserFromTeamDto?.UserId, deleteUserFromTeamDto?.TeamId, userId);
+            deleteUserFromTeamDto?.UserId, teamId, userId);
 
         if (userId == Guid.Empty)
         {
@@ -202,7 +210,7 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
             return Result.Failure(Errors.Validation("Request cannot be empty."));
         }
 
-        if (deleteUserFromTeamDto.TeamId == Guid.Empty)
+        if (teamId == Guid.Empty)
         {
             logger.LogWarning("Remove user from team failed: team ID is empty");
             return Result.Failure(Errors.Validation("Team ID cannot be empty.", "teamId"));
@@ -214,11 +222,11 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
             return Result.Failure(Errors.Validation("User ID to remove cannot be empty.", "userId"));
         }
 
-        var team = await unitOfWork.TeamRepository.GetTeamByIdAsync(deleteUserFromTeamDto.TeamId);
+        var team = await unitOfWork.TeamRepository.GetTeamByIdAsync(teamId);
         if (team is null)
         {
-            logger.LogWarning("Remove user from team failed: team {TeamId} not found", deleteUserFromTeamDto.TeamId);
-            return Result.Failure(Errors.NotFound("Team", deleteUserFromTeamDto.TeamId.ToString()));
+            logger.LogWarning("Remove user from team failed: team {TeamId} not found", teamId);
+            return Result.Failure(Errors.NotFound("Team", teamId.ToString()));
         }
 
         var isUserAdminOfTeam = await unitOfWork.TeamRepository.IsUserAdminOfTeamAsync(userId, team.Id);
@@ -239,7 +247,7 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
         }
 
         var teamMember = await unitOfWork.TeamMemberRepository.GetByTeamAndUserAsync(
-            deleteUserFromTeamDto.TeamId, deleteUserFromTeamDto.UserId);
+            teamId, deleteUserFromTeamDto.UserId);
 
         if (teamMember is null)
         {
@@ -258,20 +266,20 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
         return Result.Success();
     }
 
-    public async Task<Result<IEnumerable<TeamMember>>> GetAllTeamWhereUserMemberAsync(Guid userId)
+    public async Task<Result<IEnumerable<TeamDto>>> GetAllTeamWhereUserMemberAsync(Guid userId)
     {
         logger.LogDebug("Fetching all teams for user {UserId}", userId);
 
         if (userId == Guid.Empty)
         {
             logger.LogWarning("Get teams for user failed: user ID is empty");
-            return Result<IEnumerable<TeamMember>>.Failure(Errors.Validation("User ID cannot be empty.", "userId"));
+            return Result<IEnumerable<TeamDto>>.Failure(Errors.Validation("User ID cannot be empty.", "userId"));
         }
 
-        var result = await unitOfWork.TeamMemberRepository.GetByUserIdAsync(userId);
+        var result = await unitOfWork.TeamRepository.GetTeamsByUserIdAsync(userId);
 
         logger.LogDebug("Found {Count} teams for user {UserId}", result.Count(), userId);
-        return Result<IEnumerable<TeamMember>>.Success(result);
+        return Result<IEnumerable<TeamDto>>.Success(result);
     }
 
     public async Task<Result<IEnumerable<UserTask>>> GetAllTasksTeamAsync(GetAllTeamTaskDto getAllTeamTaskDto,
@@ -370,24 +378,18 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
         return Result<ICollection<TeamMember>>.Success(members.Members);
     }
 
-    public async Task<Result> UpdateMemberRoleAsync(UpdateTeamRoleDto dto, Guid userId)
+    public async Task<Result> UpdateMemberRoleAsync(Guid teamId, Guid addUserId, Guid userId)
     {
         logger.LogInformation("Update member role request for user {TargetUserId} in team {TeamId} by user {UserId}",
-            dto?.UserId, dto?.TeamId, userId);
+            addUserId, teamId, userId);
 
-        if (dto is null)
-        {
-            logger.LogWarning("Update member role failed: request is null");
-            return Result.Failure(Errors.Validation("Request cannot be empty."));
-        }
-
-        if (dto.TeamId == Guid.Empty)
+        if (teamId == Guid.Empty)
         {
             logger.LogWarning("Update member role failed: team ID is empty");
             return Result.Failure(Errors.Validation("Team ID cannot be empty.", "teamId"));
         }
 
-        if (dto.UserId == Guid.Empty)
+        if (addUserId == Guid.Empty)
         {
             logger.LogWarning("Update member role failed: target user ID is empty");
             return Result.Failure(Errors.Validation("User ID to update cannot be empty.", "userId"));
@@ -399,34 +401,34 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
             return Result.Failure(Errors.Validation("Current user ID cannot be empty.", "userId"));
         }
 
-        var team = await unitOfWork.TeamRepository.GetTeamByIdAsync(dto.TeamId);
+        var team = await unitOfWork.TeamRepository.GetTeamByIdAsync(teamId);
         if (team is null)
         {
-            logger.LogWarning("Update member role failed: team {TeamId} not found", dto.TeamId);
-            return Result.Failure(Errors.NotFound("Team", dto.TeamId.ToString()));
+            logger.LogWarning("Update member role failed: team {TeamId} not found", teamId);
+            return Result.Failure(Errors.NotFound("Team", teamId.ToString()));
         }
 
-        var isAdmin = await unitOfWork.TeamMemberRepository.IsUserAdminAsync(dto.TeamId, userId);
+        var isAdmin = await unitOfWork.TeamMemberRepository.IsUserAdminAsync(teamId, userId);
         if (!isAdmin)
         {
             logger.LogWarning("Update member role failed: user {UserId} is not admin of team {TeamId}",
-                userId, dto.TeamId);
+                userId, teamId);
             return Result.Failure(Errors.Forbidden("Only team administrators can update roles."));
         }
 
-        var teamMember = await unitOfWork.TeamMemberRepository.GetByTeamAndUserAsync(dto.TeamId, dto.UserId);
+        var teamMember = await unitOfWork.TeamMemberRepository.GetByTeamAndUserAsync(teamId, addUserId);
         if (teamMember is null)
         {
             logger.LogWarning(
                 "Update member role failed: team member not found for user {TargetUserId} in team {TeamId}",
-                dto.UserId, dto.TeamId);
+                addUserId, teamId);
             return Result.Failure(Errors.NotFound("Team member not found."));
         }
 
         if (teamMember.IsAdmin)
         {
             logger.LogWarning("Update member role failed: user {TargetUserId} is already admin of team {TeamId}",
-                dto.UserId, dto.TeamId);
+                addUserId, teamId);
             return Result.Failure(Errors.Conflict("User is already a team administrator."));
         }
 
@@ -434,7 +436,7 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
         await unitOfWork.SaveChangesAsync();
 
         logger.LogInformation("User {TargetUserId} promoted to admin in team {TeamId} by user {UserId}",
-            dto.UserId, team.Id, userId);
+            addUserId, team.Id, userId);
 
         return Result.Success();
     }

@@ -12,6 +12,6 @@ public class TeamMemberConfiguration : IEntityTypeConfiguration<TeamMember>
         builder.ToTable("TeamMembers");
         builder.Property(t => t.IsAdmin).IsRequired();
         builder.HasOne<User>().WithMany().HasForeignKey(t => t.UserId);
-        builder.HasOne(tm => tm.Team).WithMany(t => t.Members).HasForeignKey(tm => tm.TeamId);
+      
     }
 }

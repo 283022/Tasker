@@ -13,7 +13,7 @@ public class TeamConfiguration : IEntityTypeConfiguration<Team>
         builder.Property(p => p.Id).ValueGeneratedOnAdd().HasDefaultValueSql("gen_random_uuid()");
         builder.Property(p => p.Name).HasColumnName("Name");
         builder.HasMany(t => t.Members)
-            .WithOne(tm => tm.Team)
+            .WithOne()
             .HasForeignKey(tm => tm.TeamId)
             .OnDelete(DeleteBehavior.Cascade);
     }

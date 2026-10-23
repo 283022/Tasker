@@ -30,6 +30,5 @@ public class TeamMember
     public bool IsAdmin { get; private set; }
     
     
-    public Team Team { get; private set; }
     public User User { get; private set; }
 }
