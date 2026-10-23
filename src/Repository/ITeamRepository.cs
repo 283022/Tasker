@@ -13,4 +13,5 @@ public interface ITeamRepository
     Task<Team?> GetTeamByIdAsync(Guid teamId);
     Task<bool> IsUserAdminOfTeamAsync(Guid userId, Guid teamId);
     Task<bool> IsUserInTeamAsync(Guid userId, Guid teamId);
+    Task<Team?> GetByIdNameAsync(string idName);
 }

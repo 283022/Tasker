@@ -59,4 +59,10 @@ public class UserRepository(ApplicationContext context, ILogger<UserRepository> 
         
         return user;
     }
+    
+    public async Task<User?> GetByUsernameAsync(string username)
+    {
+        return await context.Users
+            .FirstOrDefaultAsync(user => user.DisplayName == username);
+    }
 }

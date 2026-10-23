@@ -84,4 +84,10 @@ public class TeamRepository(ApplicationContext context, ILogger<TeamRepository> 
         return await context.TeamMembers
             .AnyAsync(m => m.UserId == userId && m.TeamId == teamId);
     }
+    
+    public async Task<Team?> GetByIdNameAsync(string idName)
+        {
+            return await context.Teams
+                .FirstOrDefaultAsync(team => team.IdName == idName);
+        }
 }

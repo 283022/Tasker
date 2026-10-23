@@ -16,5 +16,10 @@ public class TeamConfiguration : IEntityTypeConfiguration<Team>
             .WithOne()
             .HasForeignKey(tm => tm.TeamId)
             .OnDelete(DeleteBehavior.Cascade);
+        builder.Property(p => p.IdName).HasColumnName("IdName").IsRequired();
+        builder.HasIndex(x => x.IdName).IsUnique();
+        
+        
+        builder.Property(p => p.JoinPolicy).HasColumnName("JoinPolicy").IsRequired();
     }
 }

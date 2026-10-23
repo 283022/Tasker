@@ -10,4 +10,5 @@ public interface IUserRepository
     Task<bool> UserExistsAsync(string email);
     Task<IReadOnlyList<User>> GetAllUsersAsync();
     Task<User?> GetUserByIdAsync(Guid id);
+    Task<User?> GetByUsernameAsync(string username);
 }

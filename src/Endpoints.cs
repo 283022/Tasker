@@ -251,6 +251,23 @@ public static class Endpoints
             .ProducesProblem(500)
             .WithSummary("Delete user")
             .WithDescription("Deletes a user account. Users can only delete themselves.");
+        
+        userGroup.MapPatch("/changeDisplayName", async (
+            HttpContext context,
+            string displayName,
+            UserService userService,
+            [FromServices] TokenService tokenService) =>
+        {
+            var userIdResult = tokenService.GetUserIdFromContext(context);
+            if (userIdResult.IsFailure)
+                return Results.Unauthorized();
+            
+            var result = await userService.ChangeUserDisplayName(
+                userIdResult.Value,
+                displayName);
+
+            return result.ToHttpResult();
+        });
     }
 
     
@@ -658,6 +675,23 @@ public static class Endpoints
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
             var result = await teamJoinRequestService.RejectAsync(id, userIdResult.Value);
+            return result.ToHttpResult();
+        });
+        
+        teamGroup.MapPatch("{id}/changeDisplayName", async 
+        ([FromRoute] Guid id,
+            [FromBody] string DisplayName,
+            [FromServices] TeamService teamService,
+            [FromServices] TokenService tokenService,
+            HttpContext context) =>
+        {
+            var userIdResult = tokenService.GetUserIdFromContext(context);
+            if (userIdResult.IsFailure)
+                return Results.Unauthorized();
+            var result = await teamService.ChangeIdName(
+                userIdResult.Value, id,
+                DisplayName);
+
             return result.ToHttpResult();
         });
     }

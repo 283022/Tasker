@@ -55,5 +55,12 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
 
         // Явное имя таблицы (опционально)
         builder.ToTable("Users");
+        
+        builder.Property(x => x.DisplayName)
+            .HasMaxLength(32)
+            .IsRequired();
+
+        builder.HasIndex(x => x.DisplayName)
+            .IsUnique();
     }
 }

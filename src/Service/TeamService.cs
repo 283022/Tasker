@@ -20,14 +20,19 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
             return userValidation;
         }
 
-        if (createTeamDto is null || string.IsNullOrWhiteSpace(createTeamDto.Name))
+        if (createTeamDto is null || string.IsNullOrWhiteSpace(createTeamDto.Name) || string.IsNullOrWhiteSpace(createTeamDto.idName))
         {
             logger.LogWarning("Team creation failed: team name is empty");
             return Result.Failure(
                 Errors.Validation("Team name cannot be empty.", "name"));
         }
-
-        var teamResult = Team.Create(createTeamDto.Name, createTeamDto.policy);
+        
+        var indexResult = await unitOfWork.TeamRepository.GetByIdNameAsync(createTeamDto.idName);
+        
+        if (indexResult is not null)
+            return Result.Failure(Errors.Conflict("Team with this Id name already exists."));
+        
+        var teamResult = Team.Create(createTeamDto.Name, createTeamDto.policy, createTeamDto.idName);
         if (teamResult.IsFailure)
         {
             logger.LogWarning(
@@ -632,6 +637,57 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
 
         return Result.Success();
     }
+    public async Task<Result> ChangeIdName(Guid userId, Guid teamId, string idName)
+    {
+        var teamIdValidation = ValidateTeamId(teamId);
+        if (teamIdValidation.IsFailure)
+        {
+            logger.LogWarning("Update member role failed: team ID is empty");
+            return teamIdValidation;
+        }
+        
+        if (string.IsNullOrWhiteSpace(idName))
+            return Result.Failure(Errors.Validation("Id Name cannot be empty.", "userId"));
+        
+        var userValidation = ValidateUserId(userId);
+        if (userValidation.IsFailure)
+        {
+            logger.LogWarning("Update member role failed: current user ID is empty");
+            return Result.Failure(
+                Errors.Validation("Current user ID cannot be empty.", "userId"));
+        }
+        
+        var indexResult = await unitOfWork.TeamRepository.GetByIdNameAsync(idName);
+        if (indexResult is not null)
+            return Result.Failure(Errors.Conflict("Id exists"));
+        
+        var team = await unitOfWork.TeamRepository.GetTeamByIdAsync(teamId);
+        if (team is null)
+        {
+            logger.LogWarning(
+                "Update member role failed: team {TeamId} not found",
+                teamId);
+
+            return Result.Failure(Errors.NotFound("Team", teamId.ToString()));
+        }
+
+        var isAdmin = await unitOfWork.TeamMemberRepository
+            .IsUserAdminAsync(teamId, userId);
+
+        if (!isAdmin)
+        {
+            logger.LogWarning(
+                "Update member role failed: user {UserId} is not admin of team {TeamId}",
+                userId, teamId);
+
+            return Result.Failure(
+                Errors.Forbidden("Only team administrators can update roles."));
+        }
+        
+        team.ChangeIdName(idName);
+        await unitOfWork.SaveChangesAsync();
+        return Result.Success();
+    }
     
     // Общие методы валидации
 
@@ -676,4 +732,5 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
 
         return Result.Failure(Errors.Forbidden(errorMessage));
     }
+
 }

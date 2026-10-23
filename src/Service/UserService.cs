@@ -38,7 +38,7 @@ public class UserService(
             return Result.Failure(Errors.Validation(password.Error.Message, "password"));
         }
 
-        var userResult = User.Create(request.Name, email.Value, password.Value);
+        var userResult = User.Create(request.Name, email.Value, password.Value, request.DisplayName, request.Visible);
 
         if (userResult.IsFailure || userResult.Value is null)
         {
@@ -63,6 +63,34 @@ public class UserService(
         return Result.Success();
     }
 
+    public async Task<Result> ChangeUserDisplayName(
+        Guid userId,
+        string displayName)
+    {
+        if (userId == Guid.Empty)
+            return Result.Failure(
+                Errors.Validation("User ID cannot be empty.", "userId"));
+
+        if (string.IsNullOrWhiteSpace(displayName))
+            return Result.Failure(
+                Errors.Validation("Display name cannot be empty.", "displayName"));
+
+        var user = await unitOfWork.UserRepository.GetUserByIdAsync(userId);
+
+        if (user is null)
+            return Result.Failure(
+                Errors.NotFound("User not found."));
+
+        var changeResult = user.ChangeDisplayName(displayName);
+
+        if (changeResult.IsFailure)
+            return changeResult;
+
+        await unitOfWork.SaveChangesAsync();
+
+        return Result.Success();
+    }
+    
     public async Task<bool> UserExistsAsync(string email)
     {
         logger.LogTrace("Checking if user exists with email {Email}", email);

@@ -10,7 +10,9 @@ using src.Domain.Entities;
 public record CreateUserDto(
     [Required] string Name,
     [Required] [EmailAddress] string Email,
-    [Required] string Password);
+    [Required] string Password,
+    bool? Visible,
+    string? DisplayName);
 
 /// <summary>
 /// DTO для входа в систему
@@ -105,7 +107,8 @@ public record GetAllTeamTaskDto(
 /// <param name="Name">Название команды</param>
 public record CreateTeamDto(
     [Required] string Name,
-    JoinPolicy? policy
+    JoinPolicy? policy,
+    string idName
 );
 
 /// <summary>
