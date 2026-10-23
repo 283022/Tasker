@@ -11,6 +11,7 @@ public class UnitOfWorkEFcore : IUnitOfWork, IDisposable
     private readonly ILogger<UnitOfWorkEFcore> _logger;
     private IDbContextTransaction? _transaction;
     private bool _disposed;
+    
 
     public UnitOfWorkEFcore(
         ApplicationContext context,
@@ -31,6 +32,8 @@ public class UnitOfWorkEFcore : IUnitOfWork, IDisposable
     public IUserRepository UserRepository { get; }
     public IUserTaskRepository UserTaskRepository { get; }
     public ITeamRepository TeamRepository { get; }
+    
+    public TeamJoinRequestRepository TeamJoinRequestRepository { get; }
     public ITeamMemberRepository TeamMemberRepository { get; }
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

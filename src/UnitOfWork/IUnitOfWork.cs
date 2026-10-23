@@ -7,6 +7,7 @@ public interface IUnitOfWork : IDisposable
     IUserRepository UserRepository { get; }
     IUserTaskRepository UserTaskRepository { get; }
     ITeamRepository TeamRepository { get; }
+    TeamJoinRequestRepository TeamJoinRequestRepository { get; }
     ITeamMemberRepository TeamMemberRepository { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

@@ -50,14 +50,14 @@ builder.Services.AddScoped<ITeamMemberRepository, TeamMemberRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserTaskRepository, UserTaskRepository>();
 builder.Services.AddScoped<SessionRepository>();
-
+builder.Services.AddScoped<TeamJoinRequestRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWorkEFcore>();
 
 //Services
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<TeamService>();
-
+builder.Services.AddScoped<TeamJoinRequestService>();
 
 builder.Services.AddDbContext<ApplicationContext>(options =>
 {

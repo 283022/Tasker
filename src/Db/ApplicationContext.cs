@@ -12,6 +12,8 @@ public class ApplicationContext(DbContextOptions<ApplicationContext> options) : 
     
     public DbSet<Session> Sessions {get; set;}
     
+    public DbSet<TeamJoinRequest> TeamJoinRequests { get; set; }
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationContext).Assembly);

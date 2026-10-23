@@ -119,6 +119,7 @@ public class TokenService
         }
     }
 
+    //TODO: вынести отсюда
     public Result<Guid> GetUserIdFromContext(HttpContext context)
     {
         var token = context.Request.Cookies.TryGetValue(AuthConstants.AuthTokenCookieName, out var cookieToken)

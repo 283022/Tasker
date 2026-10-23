@@ -614,5 +614,52 @@ public static class Endpoints
             .ProducesProblem(500)
             .WithSummary("Get team tasks")
             .WithDescription("Returns all tasks associated with a team.");
+
+        teamGroup.MapPost("/{id}/joinInTeam", async
+        (HttpContext context, [FromRoute] Guid id,
+            [FromServices] TokenService tokenService, [FromServices] TeamJoinRequestService teamJoinService) =>
+        {
+            var userIdResult = tokenService.GetUserIdFromContext(context);
+            if (userIdResult.IsFailure)
+                return Results.Unauthorized();
+
+            var result = await teamJoinService.CreateAsync(id, userIdResult.Value);
+            return result.ToHttpResult();
+        });
+
+        teamGroup.MapGet("/{id}/joinrequest", 
+            async ([FromRoute] Guid id, HttpContext context, 
+                [FromServices] TeamJoinRequestService teamJoinRequestService, [FromServices] TokenService tokenService) =>
+        {
+            var userIdResult = tokenService.GetUserIdFromContext(context);
+            if (userIdResult.IsFailure)
+                return Results.Unauthorized();
+            var result = await teamJoinRequestService.GetAllRequest(id,userIdResult.Value);
+            return result.ToHttpResult();
+        });
+
+        teamGroup.MapPatch("{id}/jounrequest/{joinRequestId}/Approve", async
+        (HttpContext context, [FromRoute] Guid id, [FromRoute] Guid joinRequestId,
+            [FromServices] TeamJoinRequestService teamJoinRequestService, [FromServices] TokenService tokenService) =>
+        {
+            var userIdResult = tokenService.GetUserIdFromContext(context);
+            if (userIdResult.IsFailure)
+                return Results.Unauthorized();
+            var result = await teamJoinRequestService.ApproveAsync(id, userIdResult.Value);
+            return result.ToHttpResult();
+        });
+        
+        
+        teamGroup.MapPatch("{id}/jounrequest/{joinRequestId}/Reject", async
+        (HttpContext context, [FromRoute] Guid id, [FromRoute] Guid joinRequestId,
+            [FromServices] TeamJoinRequestService teamJoinRequestService, [FromServices] TokenService tokenService) =>
+        {
+            var userIdResult = tokenService.GetUserIdFromContext(context);
+            if (userIdResult.IsFailure)
+                return Results.Unauthorized();
+            var result = await teamJoinRequestService.RejectAsync(id, userIdResult.Value);
+            return result.ToHttpResult();
+        });
     }
+    
 }

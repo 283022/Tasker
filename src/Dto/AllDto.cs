@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using src.Domain.Entities;
 
 /// <summary>
 /// DTO для регистрации нового пользователя
@@ -103,7 +104,8 @@ public record GetAllTeamTaskDto(
 /// </summary>
 /// <param name="Name">Название команды</param>
 public record CreateTeamDto(
-    [Required] string Name
+    [Required] string Name,
+    JoinPolicy? policy
 );
 
 /// <summary>
@@ -120,9 +122,15 @@ public record DeleteUserDto(
 /// <param name="id">ID команды</param>
 public record GetTeamDto(
     [Required] Guid id);
-    
-/// <summary>
-/// DTO для обновления роли пользователя в команде
-/// </summary>
-/// <param name="TeamId">ID команды</param>
-/// <param name="UserId">ID пользователя</param>
+
+
+public class JoinRequestDto
+{
+    public Guid Id { get; set; }
+    public Guid TeamId { get; set; }
+    public Guid UserId { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public DateTime? ReviewedAt { get; set; }
+    public Guid? ReviewedByUserId { get; set; }
+}
