@@ -90,4 +90,20 @@ public class TeamRepository(ApplicationContext context, ILogger<TeamRepository> 
             return await context.Teams
                 .FirstOrDefaultAsync(team => team.IdName == idName);
         }
+    
+    
+    public async Task<List<Team>> SearchByIdNameAsync(
+        string query,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return [];
+
+        return await context.Teams
+            .AsNoTracking()
+            .Where(t => EF.Functions.ILike(t.IdName, $"%{query}%"))
+            .OrderBy(t => t.IdName)
+            .Take(5)
+            .ToListAsync(cancellationToken);
+    }
 }

@@ -58,7 +58,8 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         
         builder.Property(x => x.DisplayName)
             .HasMaxLength(32)
-            .IsRequired();
+            .IsRequired()
+            .HasDefaultValueSql("replace(gen_random_uuid()::text, '-', '')");
 
         builder.HasIndex(x => x.DisplayName)
             .IsUnique();

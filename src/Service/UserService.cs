@@ -20,6 +20,12 @@ public class UserService(
             return Result.Failure(Errors.Validation("Request cannot be null."));
         }
 
+        var indexResult = await unitOfWork.UserRepository.SearchByDisplayNameAsync(request.DisplayName);
+        
+        if (indexResult is not null)
+            return Result.Failure(Errors.Conflict("User with this display name already exists."));
+        
+        
         var email = Email.Create(request.Email);
         var password = Password.Create(request.Password, passwordHasher);
 
@@ -90,7 +96,6 @@ public class UserService(
 
         return Result.Success();
     }
-    
     public async Task<bool> UserExistsAsync(string email)
     {
         logger.LogTrace("Checking if user exists with email {Email}", email);

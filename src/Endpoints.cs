@@ -17,11 +17,13 @@ public static class Endpoints
         var userGroup = group.MapGroup("users").WithTags("users");
         var taskGroup = group.MapGroup("tasks").WithTags("tasks");
         var teamGroup = group.MapGroup("teams").WithTags("teams");
+        var searchGroup = group.MapGroup("search").WithTags("search");
         
         ConfigureAuthEndpoints(authGroup);
         ConfigureUserEndpoints(userGroup);
         ConfigureTaskEndpoints(taskGroup);
         ConfigureTeamEndpoints(teamGroup);
+        ConfigureSearchEndpoints(searchGroup);
         
         return app;
     }
@@ -695,5 +697,33 @@ public static class Endpoints
             return result.ToHttpResult();
         });
     }
-    
+
+
+    private static void ConfigureSearchEndpoints(RouteGroupBuilder searchGroup)
+    {
+        searchGroup.MapPost("/users", async
+        (HttpContext context, [FromServices] SearchService searchService,
+            [FromServices] TokenService tokenService, [FromBody] UserEndpointSearchDto dto) =>
+        {
+            var userId = tokenService.GetUserIdFromContext(context);
+            if (userId.IsFailure)
+                return Results.Unauthorized();
+
+            var result = await searchService.SearchUsersAsync(dto);
+            return result.ToHttpResult();
+        });
+        
+        
+        searchGroup.MapPost("/teams", async
+        (HttpContext context, [FromServices] SearchService searchService,
+            [FromServices] TokenService tokenService, [FromBody] TeamEndpointSearchDto dto) =>
+        {
+            var userId = tokenService.GetUserIdFromContext(context);
+            if (userId.IsFailure)
+                return Results.Unauthorized();
+
+            var result = await searchService.SearchTeamAsync(dto);
+            return result.ToHttpResult();
+        });
+    }
 }

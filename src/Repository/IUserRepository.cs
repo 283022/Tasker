@@ -10,5 +10,10 @@ public interface IUserRepository
     Task<bool> UserExistsAsync(string email);
     Task<IReadOnlyList<User>> GetAllUsersAsync();
     Task<User?> GetUserByIdAsync(Guid id);
-    Task<User?> GetByUsernameAsync(string username);
+
+    Task<List<User>> SearchByDisplayNameWithPagginationAsync(string query, CancellationToken cancellationToken = default);
+
+    Task<User?> SearchByDisplayNameAsync(
+        string query,
+        CancellationToken cancellationToken = default);
 }

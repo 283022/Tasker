@@ -60,9 +60,27 @@ public class UserRepository(ApplicationContext context, ILogger<UserRepository> 
         return user;
     }
     
-    public async Task<User?> GetByUsernameAsync(string username)
+    public async Task<User?> SearchByDisplayNameAsync(
+        string query,
+        CancellationToken cancellationToken = default)
     {
+        var user = context.Users.FirstOrDefaultAsync(u => u.DisplayName == query,cancellationToken);
+        return await user;
+    }
+    
+    
+    public async Task<List<User>> SearchByDisplayNameWithPagginationAsync(
+        string query,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return [];
+
         return await context.Users
-            .FirstOrDefaultAsync(user => user.DisplayName == username);
+            .AsNoTracking()
+            .Where(u => EF.Functions.ILike(u.DisplayName, $"%{query}%"))
+            .OrderBy(u => u.DisplayName)
+            .Take(5)
+            .ToListAsync(cancellationToken);
     }
 }

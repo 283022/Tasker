@@ -137,3 +137,20 @@ public class JoinRequestDto
     public DateTime? ReviewedAt { get; set; }
     public Guid? ReviewedByUserId { get; set; }
 }
+
+public record UserSearchDto(
+    Guid Id,
+    string DisplayName
+);
+
+public record TeamSearchDto(
+    Guid Id,
+    string IdName);
+    
+public record UserEndpointSearchDto(
+    string DisplayName);
+    
+
+
+public record TeamEndpointSearchDto (
+    string IdName);

@@ -54,6 +54,12 @@ namespace src.Migrations
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
 
+                    b.Property<string>("IdName")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValueSql("gen_random_uuid()::text");
+
                     b.Property<string>("JoinPolicy")
                         .IsRequired()
                         .HasColumnType("text");
@@ -64,6 +70,9 @@ namespace src.Migrations
                         .HasColumnName("Name");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("IdName")
+                        .IsUnique();
 
                     b.ToTable("Teams", (string)null);
                 });
@@ -132,11 +141,21 @@ namespace src.Migrations
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
 
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasDefaultValueSql("replace(gen_random_uuid()::text, '-', '')");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)")
                         .HasColumnName("Name_Value");
+
+                    b.Property<bool>("Visible")
+                        .HasColumnType("boolean");
 
                     b.ComplexProperty(typeof(Dictionary<string, object>), "Email", "src.Domain.Entities.User.Email#Email", b1 =>
                         {
@@ -162,6 +181,9 @@ namespace src.Migrations
 
                     b.HasKey("Id")
                         .HasName("PK_User");
+
+                    b.HasIndex("DisplayName")
+                        .IsUnique();
 
                     b.ToTable("Users", null, t =>
                         {
