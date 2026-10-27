@@ -59,6 +59,7 @@ builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<TeamService>();
 builder.Services.AddScoped<TeamJoinRequestService>();
 builder.Services.AddScoped<SearchService>();
+builder.Services.AddScoped<AccountService>();
 
 builder.Services.AddDbContext<ApplicationContext>(options =>
 {

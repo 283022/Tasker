@@ -154,3 +154,24 @@ public record UserEndpointSearchDto(
 
 public record TeamEndpointSearchDto (
     string IdName);
+    
+public record AccountDto(
+    string Name,
+    string DisplayName,
+    string Email,
+    bool Visible
+);
+
+public record ChangeDisplayNameDto(string DisplayName);
+
+public record ChangeVisibilityDto(bool Visible);
+
+public record ChangePasswordDto(
+    [Required] string CurrentPassword,
+    [Required] string NewPassword);
+    
+public record ChangeEmailDto(
+    [Required] string NewEmail);
+    
+public record ChangeUserNameDto(
+    [Required] string  NewUserName);

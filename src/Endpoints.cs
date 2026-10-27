@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using src.Auth;
-using src.Domain;
 using src.InfrastructError;
 using src.Service;
 
@@ -18,12 +17,14 @@ public static class Endpoints
         var taskGroup = group.MapGroup("tasks").WithTags("tasks");
         var teamGroup = group.MapGroup("teams").WithTags("teams");
         var searchGroup = group.MapGroup("search").WithTags("search");
+        var accountGroup = group.MapGroup("accounts").WithTags("accounts");
         
         ConfigureAuthEndpoints(authGroup);
         ConfigureUserEndpoints(userGroup);
         ConfigureTaskEndpoints(taskGroup);
         ConfigureTeamEndpoints(teamGroup);
         ConfigureSearchEndpoints(searchGroup);
+        ConfigureAccountEndpoints(accountGroup);
         
         return app;
     }
@@ -75,7 +76,6 @@ public static class Endpoints
                     return sessionResult.ToHttpResult();
 
                 var tokens = sessionResult.Value;
-                var cookieOptions = CreateCookieOptions(context);
 
                 context.Response.Cookies.Append(
                     AuthConstants.AuthTokenCookieName,
@@ -207,7 +207,6 @@ public static class Endpoints
     
     // USER ENDPOINTS
     
-
     private static void ConfigureUserEndpoints(RouteGroupBuilder userGroup)
     {
         userGroup.MapGet("/me", async (
@@ -230,52 +229,10 @@ public static class Endpoints
             .ProducesProblem(500)
             .WithSummary("Get current user")
             .WithDescription("Returns the authenticated user's profile. Requires authentication.");
-
-        userGroup.MapDelete("/{id}", async (
-                HttpContext context,
-                [FromRoute] Guid id,
-                [FromServices] UserService userService,
-                [FromServices] TokenService tokenService) =>
-            {
-                var userIdResult = tokenService.GetUserIdFromContext(context);
-                if (userIdResult.IsFailure)
-                    return Results.Unauthorized();
-
-                var result = await userService.DeleteUserAsync(new DeleteUserDto(id), userIdResult.Value);
-                return result.ToHttpResult();
-            })
-            .RequireAuthorization()
-            .Produces(200)
-            .ProducesProblem(400)
-            .ProducesProblem(401)
-            .ProducesProblem(403)
-            .ProducesProblem(404)
-            .ProducesProblem(500)
-            .WithSummary("Delete user")
-            .WithDescription("Deletes a user account. Users can only delete themselves.");
-        
-        userGroup.MapPatch("/changeDisplayName", async (
-            HttpContext context,
-            string displayName,
-            UserService userService,
-            [FromServices] TokenService tokenService) =>
-        {
-            var userIdResult = tokenService.GetUserIdFromContext(context);
-            if (userIdResult.IsFailure)
-                return Results.Unauthorized();
-            
-            var result = await userService.ChangeUserDisplayName(
-                userIdResult.Value,
-                displayName);
-
-            return result.ToHttpResult();
-        });
     }
-
     
     // TASK ENDPOINTS
     
-
     private static void ConfigureTaskEndpoints(RouteGroupBuilder taskGroup)
     {
         taskGroup.MapGet("/", async (
@@ -419,11 +376,9 @@ public static class Endpoints
             .WithSummary("Delete task")
             .WithDescription("Deletes a task. Only the author or a team admin can delete it.");
     }
-
     
     // TEAM ENDPOINTS
     
-
     private static void ConfigureTeamEndpoints(RouteGroupBuilder teamGroup)
     {
         teamGroup.MapPost("/", async (
@@ -680,9 +635,9 @@ public static class Endpoints
             return result.ToHttpResult();
         });
         
-        teamGroup.MapPatch("{id}/changeDisplayName", async 
+        teamGroup.MapPatch("{id}/changeIdName", async 
         ([FromRoute] Guid id,
-            [FromBody] string DisplayName,
+            [FromBody] string displayName,
             [FromServices] TeamService teamService,
             [FromServices] TokenService tokenService,
             HttpContext context) =>
@@ -692,13 +647,13 @@ public static class Endpoints
                 return Results.Unauthorized();
             var result = await teamService.ChangeIdName(
                 userIdResult.Value, id,
-                DisplayName);
+                displayName);
 
             return result.ToHttpResult();
         });
     }
 
-
+    // SEARCH ENDPOINTS
     private static void ConfigureSearchEndpoints(RouteGroupBuilder searchGroup)
     {
         searchGroup.MapPost("/users", async
@@ -726,4 +681,135 @@ public static class Endpoints
             return result.ToHttpResult();
         });
     }
+
+
+    private static void ConfigureAccountEndpoints(
+        RouteGroupBuilder accountGroup)
+    {
+        accountGroup.MapGet("/", async (
+            HttpContext httpContext,
+            AccountService accountService,
+            TokenService tokenService) =>
+        {
+            var userId =
+                tokenService.GetUserIdFromContext(httpContext);
+
+            if (userId.IsFailure)
+                return Results.Unauthorized();
+
+            var result =
+                await accountService.GetProfileAsync(userId.Value);
+
+            return result.ToHttpResult();
+        });
+
+        accountGroup.MapPatch("/display-name", async (
+            HttpContext httpContext,
+            ChangeDisplayNameDto dto,
+            AccountService accountService,
+            TokenService tokenService) =>
+        {
+            var userId =
+                tokenService.GetUserIdFromContext(httpContext);
+
+            if (userId.IsFailure)
+                return Results.Unauthorized();
+
+            var result =
+                await accountService.ChangeDisplayNameAsync(
+                    userId.Value,
+                    dto.DisplayName);
+
+            return result.ToHttpResult();
+        });
+
+        accountGroup.MapPatch("/visibility", async (
+            HttpContext httpContext,
+            ChangeVisibilityDto dto,
+            AccountService accountService,
+            TokenService tokenService) =>
+        {
+            var userId =
+                tokenService.GetUserIdFromContext(httpContext);
+
+            if (userId.IsFailure)
+                return Results.Unauthorized();
+
+            var result =
+                await accountService.ChangeVisibilityAsync(
+                    userId.Value,
+                    dto.Visible);
+
+            return result.ToHttpResult();
+        });
+
+        accountGroup.MapPatch("/password", 
+            async (TokenService tokenService, HttpContext context,
+                AccountService accountService, ChangePasswordDto dto) =>
+            {
+                var userId = tokenService.GetUserIdFromContext(context);
+                
+                if (userId.IsFailure)
+                    return Results.Unauthorized();
+
+                var result = await accountService.ChangePasswordAsync(dto, userId.Value);
+                
+                return result.ToHttpResult();
+            });
+
+        accountGroup.MapPatch("/email", async 
+            (TokenService tokenService, HttpContext context,
+                AccountService accountService, ChangeEmailDto dto) =>
+        {
+            var userId = tokenService.GetUserIdFromContext(context);
+            
+            if (userId.IsFailure)
+                return  Results.Unauthorized();
+            
+            var result = await accountService.ChangeEmailAsync(dto, userId.Value);
+            
+            return result.ToHttpResult();
+        });
+
+        accountGroup.MapPatch("/name", async
+            (TokenService tokenService, HttpContext context,
+                AccountService accountService, ChangeUserNameDto dto) =>
+        {
+            var userId = tokenService.GetUserIdFromContext(context);
+            
+            if (userId.IsFailure)
+                return  Results.Unauthorized();
+
+            var result = await accountService.ChangeUserNameAsync(dto,userId.Value);
+            return result.ToHttpResult();
+        });
+        
+        accountGroup.MapDelete("/{id}", async (
+                HttpContext context,
+                [FromRoute] Guid id,
+                [FromServices] AccountService accountService,
+                [FromServices] TokenService tokenService) =>
+            {
+                //такая форма запроса с повоторяющимся id нужна в случае добавления администратора на площадку
+                var userIdResult = tokenService.GetUserIdFromContext(context);
+                if (userIdResult.IsFailure)
+                    return Results.Unauthorized();
+
+                var result = await accountService.DeleteUserAsync(new DeleteUserDto(id), userIdResult.Value);
+                return result.ToHttpResult();
+            })
+            .RequireAuthorization()
+            .Produces(200)
+            .ProducesProblem(400)
+            .ProducesProblem(401)
+            .ProducesProblem(403)
+            .ProducesProblem(404)
+            .ProducesProblem(500)
+            .WithSummary("Delete user")
+            .WithDescription("Deletes a user account. Users can only delete themselves.");
+        
+        
+        
+    }
+    
 }

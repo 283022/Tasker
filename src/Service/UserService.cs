@@ -12,25 +12,19 @@ public class UserService(
 {
     public async Task<Result> RegisterAsync(CreateUserDto request)
     {
-        logger.LogInformation("Starting user registration for email {Email}", request?.Email);
+        logger.LogInformation("Starting user registration for email {Email}", request.Email);
 
-        if (request is null)
+        if (request.DisplayName != null)
         {
-            logger.LogWarning("Registration failed: request is null");
-            return Result.Failure(Errors.Validation("Request cannot be null."));
+            var indexResult = await unitOfWork.UserRepository.SearchByDisplayNameAsync(request.DisplayName);
+        
+            if (indexResult is not null)
+                return Result.Failure(Errors.Conflict("User with this display name already exists."));
         }
 
-        var indexResult = await unitOfWork.UserRepository.SearchByDisplayNameAsync(request.DisplayName);
-        
-        if (indexResult is not null)
-            return Result.Failure(Errors.Conflict("User with this display name already exists."));
-        
-        
+
         var email = Email.Create(request.Email);
         var password = Password.Create(request.Password, passwordHasher);
-
-        if (request.Name is null)
-            return Result.Failure(Errors.Validation("Name cannot be null.", "name"));
 
         if (email.IsFailure)
         {
@@ -46,7 +40,7 @@ public class UserService(
 
         var userResult = User.Create(request.Name, email.Value, password.Value, request.DisplayName, request.Visible);
 
-        if (userResult.IsFailure || userResult.Value is null)
+        if (userResult.IsFailure)
         {
             logger.LogError("Registration failed: user creation failed for email {Email}", request.Email);
             return Result.Failure(Errors.Internal("User creation failed."));
@@ -69,48 +63,12 @@ public class UserService(
         return Result.Success();
     }
 
-    public async Task<Result> ChangeUserDisplayName(
-        Guid userId,
-        string displayName)
-    {
-        if (userId == Guid.Empty)
-            return Result.Failure(
-                Errors.Validation("User ID cannot be empty.", "userId"));
-
-        if (string.IsNullOrWhiteSpace(displayName))
-            return Result.Failure(
-                Errors.Validation("Display name cannot be empty.", "displayName"));
-
-        var user = await unitOfWork.UserRepository.GetUserByIdAsync(userId);
-
-        if (user is null)
-            return Result.Failure(
-                Errors.NotFound("User not found."));
-
-        var changeResult = user.ChangeDisplayName(displayName);
-
-        if (changeResult.IsFailure)
-            return changeResult;
-
-        await unitOfWork.SaveChangesAsync();
-
-        return Result.Success();
-    }
-    public async Task<bool> UserExistsAsync(string email)
-    {
-        logger.LogTrace("Checking if user exists with email {Email}", email);
-        return await unitOfWork.UserRepository.UserExistsAsync(email);
-    }
+   
+    
 
     public async Task<Result<User>> UserLoginAsync(LoginUserDto request)
     {
-        logger.LogInformation("Login attempt for email {Email}", request?.Email);
-
-        if (request is null)
-        {
-            logger.LogWarning("Login failed: request is null");
-            return Result<User>.Failure(Errors.Validation("Request cannot be null."));
-        }
+        logger.LogInformation("Login attempt for email {Email}", request.Email);
 
         var email = Email.Create(request.Email);
         if (email.IsFailure)
@@ -141,13 +99,7 @@ public class UserService(
 
     public async Task<Result<Guid>> GetUserIdAsync(LoginUserDto request)
     {
-        logger.LogDebug("Getting user ID for email {Email}", request?.Email);
-
-        if (request is null)
-        {
-            logger.LogWarning("Get user ID failed: request is null");
-            return Result<Guid>.Failure(Errors.Validation("Request cannot be null."));
-        }
+        logger.LogDebug("Getting user ID for email {Email}", request.Email);
 
         var user = await unitOfWork.UserRepository.GetUserByEmailAsync(request.Email);
         if (user is null)
@@ -181,48 +133,5 @@ public class UserService(
         return Result<User>.Success(user);
     }
 
-    public async Task<Result> DeleteUserAsync(DeleteUserDto request, Guid userId)
-    {
-        logger.LogInformation("Delete user request for user {TargetUserId} by user {CurrentUserId}",
-            request?.id, userId);
-
-        if (userId == Guid.Empty)
-        {
-            logger.LogWarning("Delete user failed: current user ID is empty");
-            return Result.Failure(Errors.Validation("Current user ID cannot be empty.", "userId"));
-        }
-
-        if (request is null)
-        {
-            logger.LogWarning("Delete user failed: request is null");
-            return Result.Failure(Errors.Validation("Request cannot be null."));
-        }
-
-        if (request.id == Guid.Empty)
-        {
-            logger.LogWarning("Delete user failed: target user ID is empty");
-            return Result.Failure(Errors.Validation("User ID to delete cannot be empty.", "userId"));
-        }
-
-        var user = await unitOfWork.UserRepository.GetUserByIdAsync(request.id);
-        if (user is null)
-        {
-            logger.LogWarning("Delete user failed: target user {TargetUserId} not found", request.id);
-            return Result.Failure(Errors.NotFound("User", request.id.ToString()));
-        }
-
-        if (user.Id != userId)
-        {
-            logger.LogWarning(
-                "Delete user failed: user {CurrentUserId} attempted to delete another user {TargetUserId}",
-                userId, request.id);
-            return Result.Failure(Errors.Forbidden("You can only delete your own account."));
-        }
-
-        await unitOfWork.UserRepository.DeleteUserAsync(user);
-        await unitOfWork.SaveChangesAsync();
-
-        logger.LogInformation("User {UserId} deleted successfully", userId);
-        return Result.Success();
-    }
+    
 }
