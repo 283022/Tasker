@@ -19,10 +19,13 @@ public class UnitOfWorkEFcore : IUnitOfWork, IDisposable
         IUserTaskRepository userTaskRepository,
         ITeamRepository teamRepository,
         ITeamMemberRepository teamMemberRepository,
-        ILogger<UnitOfWorkEFcore> logger)
+        ILogger<UnitOfWorkEFcore> logger, TeamJoinRequestRepository teamJoinRequestRepository)
     {
         _context = context;
         _logger = logger;
+        TeamJoinRequestRepository = teamJoinRequestRepository;
+        
+        
         UserRepository = userRepository;
         UserTaskRepository = userTaskRepository;
         TeamRepository = teamRepository;
