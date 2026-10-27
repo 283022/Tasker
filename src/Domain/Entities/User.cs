@@ -23,7 +23,12 @@ public class User
     {
         if (string.IsNullOrEmpty(Name)) return new Error("Validation", "Name cannot be null or empty");
         if (Name.Trim().Length == 0) return new Error("Validation", "Name cannot be empty");
+        
+        if (DisplayName is not null && DisplayName.Trim().Length == 0) return new Error("Validation", "DisplayName cannot be empty");
+        if (DisplayName is not null && DisplayName.Contains(" "))
+            return Errors.Validation("Password cannot contain spaces");
         var displayName = DisplayName ?? Guid.NewGuid().ToString();
+        
         var visible = VisibleValue ?? true;
         return new User(Name, Email, Password, displayName, visible);
     }
@@ -49,4 +54,29 @@ public class User
         return Result.Success();
     }
 
+    public Result ChangePassword(Password newPassword)
+    {
+        if (newPassword == null)
+            return Errors.Internal();
+        Password = newPassword;
+        return Result.Success();
+    }
+
+    public Result ChangeEmail(Email newEmail)
+    {
+        if (newEmail == null)
+            return Errors.Internal();
+        
+        Email =  newEmail;
+        return Result.Success();
+    }
+
+    public Result ChangeName(string newName)
+    {
+        if (string.IsNullOrEmpty(newName)) return new Error("Validation", "Name cannot be null or empty");
+        if (newName.Trim().Length == 0) return new Error("Validation", "Name cannot be empty");
+
+        Name = newName;
+        return Result.Success();
+    }
 }
