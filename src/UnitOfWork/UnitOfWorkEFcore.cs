@@ -19,13 +19,12 @@ public class UnitOfWorkEFcore : IUnitOfWork, IDisposable
         IUserTaskRepository userTaskRepository,
         ITeamRepository teamRepository,
         ITeamMemberRepository teamMemberRepository,
-        ILogger<UnitOfWorkEFcore> logger, TeamJoinRequestRepository teamJoinRequestRepository)
+        ILogger<UnitOfWorkEFcore> logger, TeamJoinRequestRepository teamJoinRequestRepository, NotificationRepository notificationRepository)
     {
         _context = context;
         _logger = logger;
         TeamJoinRequestRepository = teamJoinRequestRepository;
-        
-        
+        NotificationRepository = notificationRepository;
         UserRepository = userRepository;
         UserTaskRepository = userTaskRepository;
         TeamRepository = teamRepository;
@@ -37,6 +36,7 @@ public class UnitOfWorkEFcore : IUnitOfWork, IDisposable
     public ITeamRepository TeamRepository { get; }
     
     public TeamJoinRequestRepository TeamJoinRequestRepository { get; }
+    public NotificationRepository NotificationRepository {get;}
     public ITeamMemberRepository TeamMemberRepository { get; }
 
     public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

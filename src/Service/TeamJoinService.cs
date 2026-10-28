@@ -6,7 +6,8 @@ namespace src.Service;
 
 public class TeamJoinRequestService(
     IUnitOfWork unitOfWork,
-    ILogger<TeamJoinRequestService> logger)
+    ILogger<TeamJoinRequestService> logger,
+    NotificationService notificationService)
 {
     public async Task<Result> CreateAsync(Guid teamId, Guid userId)
     {
@@ -133,115 +134,168 @@ public class TeamJoinRequestService(
     }
     
     public async Task<Result> ApproveAsync(
-        Guid requestId,
-        Guid reviewerUserId)
+    Guid requestId,
+    Guid reviewerUserId)
+{
+    if (requestId == Guid.Empty)
+        return Result.Failure(
+            Errors.Validation("Request ID cannot be empty.", "requestId"));
+
+    if (reviewerUserId == Guid.Empty)
+        return Result.Failure(
+            Errors.Validation("User ID cannot be empty.", "userId"));
+
+    var request = await unitOfWork.TeamJoinRequestRepository
+        .GetByIdAsync(requestId);
+
+    if (request is null)
+        return Result.Failure(
+            Errors.NotFound("Join request", requestId.ToString()));
+
+    var team = await unitOfWork.TeamRepository
+        .GetTeamByIdAsync(request.TeamId);
+
+    if (team is null)
+        return Result.Failure(
+            Errors.NotFound("Team", request.TeamId.ToString()));
+
+    var isAdmin = await unitOfWork.TeamRepository
+        .IsUserAdminOfTeamAsync(reviewerUserId, request.TeamId);
+
+    if (!isAdmin)
+        return Result.Failure(
+            Errors.Forbidden(
+                "Only team administrators can approve join requests."));
+
+    var isMember = await unitOfWork.TeamRepository
+        .IsUserInTeamAsync(request.UserId, request.TeamId);
+
+    if (isMember)
+        return Result.Failure(
+            Errors.Conflict("User is already a member of this team."));
+
+    var memberResult = TeamMember.Create(
+        request.TeamId,
+        request.UserId,
+        isAdmin: false);
+
+    if (memberResult.IsFailure)
+        return Result.Failure(memberResult.Error);
+
+    try
     {
-        if (requestId == Guid.Empty)
-            return Result.Failure(
-                Errors.Validation("Request ID cannot be empty.", "requestId"));
+        var approveResult = request.Approve(reviewerUserId);
 
-        if (reviewerUserId == Guid.Empty)
-            return Result.Failure(
-                Errors.Validation("User ID cannot be empty.", "userId"));
+        if (approveResult.IsFailure)
+            return Result.Failure(approveResult.Error);
 
-        var request = await unitOfWork.TeamJoinRequestRepository
-            .GetByIdAsync(requestId);
+        await unitOfWork.TeamMemberRepository
+            .AddTeamMemberAsync(memberResult.Value);
 
-        if (request is null)
-            return Result.Failure(
-                Errors.NotFound("Join request", requestId.ToString()));
+        var notificationResult =
+            await notificationService.NotifyJoinRequestApprovedAsync(
+                request.UserId,
+                team.Id,
+                team.Name);
 
-        var isAdmin = await unitOfWork.TeamRepository
-            .IsUserAdminOfTeamAsync(reviewerUserId, request.TeamId);
+        if (notificationResult.IsFailure)
+            return Result.Failure(notificationResult.Error);
 
-        if (!isAdmin)
-            return Result.Failure(
-                Errors.Forbidden(
-                    "Only team administrators can approve join requests."));
+        // Сохраняем заявку, членство и уведомление вместе.
+        await unitOfWork.SaveChangesAsync();
 
-        var isMember = await unitOfWork.TeamRepository
-            .IsUserInTeamAsync(request.UserId, request.TeamId);
-
-        if (isMember)
-            return Result.Failure(
-                Errors.Conflict("User is already a member of this team."));
-
-
-        var memberResult = TeamMember.Create(
-            request.TeamId, request.UserId, isAdmin: false);
-
-        if (memberResult.IsFailure)
-            return Result.Failure(memberResult.Error);
-        
-        
-        await unitOfWork.BeginTransactionAsync();
-        try
-        {
-            var approveResult = request.Approve(reviewerUserId);
-
-            if (approveResult.IsFailure)
-            {
-                return Result.Failure(approveResult.Error);
-            }
-
-            await unitOfWork.TeamMemberRepository
-                .AddTeamMemberAsync(memberResult.Value);
-
-            await unitOfWork.SaveChangesAsync();
-            await unitOfWork.CommitTransactionAsync();
-        }
-        catch(Exception ex)
-        {
-            logger.LogError(ex.Message);
-            await unitOfWork.RollbackTransactionAsync();
-            return Result.Failure(Errors.Internal());
-        }
-        
         logger.LogInformation(
-            "Join request {RequestId} approved by user {ReviewerUserId}",
-            requestId, reviewerUserId);
+            "Join request {RequestId} approved by user {ReviewerUserId}. " +
+            "User {JoinedUserId} joined team {TeamId}",
+            requestId,
+            reviewerUserId,
+            request.UserId,
+            request.TeamId);
 
         return Result.Success();
     }
+    catch (Exception ex)
+    {
+        logger.LogError(
+            ex,
+            "Failed to approve join request {RequestId} by user {ReviewerUserId}",
+            requestId,
+            reviewerUserId);
+
+        return Result.Failure(
+            Errors.Internal("An error occurred while approving the join request."));
+    }
+}
 
     public async Task<Result> RejectAsync(
-        Guid requestId,
-        Guid reviewerUserId)
+    Guid requestId,
+    Guid reviewerUserId)
+{
+    if (requestId == Guid.Empty)
+        return Result.Failure(
+            Errors.Validation("Request ID cannot be empty.", "requestId"));
+
+    if (reviewerUserId == Guid.Empty)
+        return Result.Failure(
+            Errors.Validation("User ID cannot be empty.", "userId"));
+
+    var request = await unitOfWork.TeamJoinRequestRepository
+        .GetByIdAsync(requestId);
+
+    if (request is null)
+        return Result.Failure(
+            Errors.NotFound("Join request", requestId.ToString()));
+
+    var team = await unitOfWork.TeamRepository
+        .GetTeamByIdAsync(request.TeamId);
+
+    if (team is null)
+        return Result.Failure(
+            Errors.NotFound("Team", request.TeamId.ToString()));
+
+    var isAdmin = await unitOfWork.TeamRepository
+        .IsUserAdminOfTeamAsync(reviewerUserId, request.TeamId);
+
+    if (!isAdmin)
+        return Result.Failure(
+            Errors.Forbidden(
+                "Only team administrators can reject join requests."));
+
+    try
     {
-        if (requestId == Guid.Empty)
-            return Result.Failure(
-                Errors.Validation("Request ID cannot be empty.", "requestId"));
-
-        if (reviewerUserId == Guid.Empty)
-            return Result.Failure(
-                Errors.Validation("User ID cannot be empty.", "userId"));
-
-        var request = await unitOfWork.TeamJoinRequestRepository
-            .GetByIdAsync(requestId);
-
-        if (request is null)
-            return Result.Failure(
-                Errors.NotFound("Join request", requestId.ToString()));
-
-        var isAdmin = await unitOfWork.TeamRepository
-            .IsUserAdminOfTeamAsync(reviewerUserId, request.TeamId);
-
-        if (!isAdmin)
-            return Result.Failure(
-                Errors.Forbidden(
-                    "Only team administrators can reject join requests."));
-
         var rejectResult = request.Reject(reviewerUserId);
 
         if (rejectResult.IsFailure)
             return Result.Failure(rejectResult.Error);
 
+        var notificationResult =
+            await notificationService.NotifyJoinRequestRejectedAsync(
+                request.UserId,
+                team.Id,
+                team.Name);
+
+        if (notificationResult.IsFailure)
+            return Result.Failure(notificationResult.Error);
+
         await unitOfWork.SaveChangesAsync();
 
         logger.LogInformation(
             "Join request {RequestId} rejected by user {ReviewerUserId}",
-            requestId, reviewerUserId);
+            requestId,
+            reviewerUserId);
 
         return Result.Success();
     }
+    catch (Exception ex)
+    {
+        logger.LogError(
+            ex,
+            "Failed to reject join request {RequestId} by user {ReviewerUserId}",
+            requestId,
+            reviewerUserId);
+
+        return Result.Failure(
+            Errors.Internal("An error occurred while rejecting the join request."));
+    }
+}
 }

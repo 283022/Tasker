@@ -175,3 +175,19 @@ public record ChangeEmailDto(
     
 public record ChangeUserNameDto(
     [Required] string  NewUserName);
+    
+public record PaginationDto(
+    [Required] int Skip,
+    [Required]  int Take);
+
+public record NotificationDto(
+    Guid Id,
+    NotificationType Type,
+    string Message,
+    Guid? TaskId,
+    Guid? TeamId,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset? ReadAt);
+
+public record NotificationsUserDto(
+    IReadOnlyList<NotificationDto> Notifications);

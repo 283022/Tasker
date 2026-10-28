@@ -4,10 +4,12 @@ using src.UnitOfWork;
 
 namespace src.Service;
 
-public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger)
+public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger, NotificationService notificationService)
 {
     public async Task<Result<Guid>> CreateAsync(CreateTaskDto createTaskDto, Guid currentUserId)
     {
+        
+        Guid? notificationRecipientId = null;
         logger.LogInformation("Creating new task for user {UserId}: '{TaskName}'", 
             currentUserId, createTaskDto?.Name);
 
@@ -87,6 +89,14 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger)
                 logger.LogWarning("Task creation failed: assigned user {AssignedUserId} not found", assignedUserId);
                 return Result<Guid>.Failure(Errors.NotFound("User", assignedUserId.ToString()));
             }
+            
+            // Не уведомляем пользователя о задаче,
+            // // которую он назначил самому себе.
+            if (assignedUserId != currentUserId)
+            {
+                notificationRecipientId = assignedUser.Id;
+                
+            }
         }
 
         if (isPersonal)
@@ -95,8 +105,71 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger)
             task.AssignTo(currentUserId);
         }
 
-        await unitOfWork.UserTaskRepository.AddTaskAsync(task);
-        await unitOfWork.SaveChangesAsync();
+        try
+        {
+            await unitOfWork.BeginTransactionAsync();
+
+            await unitOfWork.UserTaskRepository.AddTaskAsync(task);
+
+            // Сохраняем задачу, чтобы получить ID,
+            // если он генерируется PostgreSQL.
+            await unitOfWork.SaveChangesAsync();
+
+            if (task.Id == Guid.Empty)
+                throw new InvalidOperationException(
+                    "Task ID was not generated.");
+
+            if (notificationRecipientId.HasValue)
+            {
+                var notificationResult =
+                    await notificationService.NotifyTaskAssignedAsync(
+                        notificationRecipientId.Value,
+                        task.Id,
+                        NotificationMessages.TaskAssigned(task.Name));
+
+                if (notificationResult.IsFailure)
+                {
+                    await unitOfWork.RollbackTransactionAsync();
+
+                    return Result<Guid>.Failure(
+                        notificationResult.Error);
+                }
+
+                await unitOfWork.SaveChangesAsync();
+            }
+
+            await unitOfWork.CommitTransactionAsync();
+
+            logger.LogInformation(
+                "Task created successfully: {TaskId}, name '{TaskName}', user {UserId}",
+                task.Id,
+                task.Name,
+                currentUserId);
+
+            return Result<Guid>.Success(task.Id);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Error creating task '{TaskName}' by user {UserId}",
+                task.Name,
+                currentUserId);
+
+            try
+            {
+                await unitOfWork.RollbackTransactionAsync();
+            }
+            catch (Exception rollbackException)
+            {
+                logger.LogError(
+                    rollbackException,
+                    "Failed to rollback task creation transaction");
+            }
+
+            return Result<Guid>.Failure(
+                Errors.Internal("An error occurred while creating the task."));
+        }
 
         logger.LogInformation("Task created successfully: {TaskId}, name '{TaskName}', user {UserId}", 
             task.Id, task.Name, currentUserId);
@@ -128,7 +201,7 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger)
             return Result.Failure(Errors.NotFound("User", userId.ToString()));
         }
 
-        await unitOfWork.BeginTransactionAsync();
+        
         try
         {
             var task = await unitOfWork.UserTaskRepository.GetTaskByIdAsync(deleteTaskDto.id);
@@ -137,7 +210,7 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger)
                 logger.LogWarning("Delete task failed: task {TaskId} not found", deleteTaskDto.id);
                 return Result.Failure(Errors.NotFound("Task", deleteTaskDto.id.ToString()));
             }
-
+            
             var canDelete = await unitOfWork.UserTaskRepository.CanUserManageTaskAsync(task.Id, userId);
             if (!canDelete)
             {
@@ -146,12 +219,62 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger)
                 return Result.Failure(Errors.Forbidden("You don't have permission to delete this task."));
             }
 
-            await unitOfWork.UserTaskRepository.DeleteTaskAsync(deleteTaskDto.id);
-            await unitOfWork.SaveChangesAsync();
-            await unitOfWork.CommitTransactionAsync();
+            await unitOfWork.BeginTransactionAsync();
 
-            logger.LogInformation("Task {TaskId} deleted successfully by user {UserId}", deleteTaskDto.id, userId);
-            return Result.Success();
+            try
+            {
+                if (task.AssignedToUserID is Guid assigneeId
+                    && assigneeId != userId)
+                {
+                    var notificationResult =
+                        await notificationService.NotifyTaskDeletedAsync(
+                            assigneeId,
+                            task.Name);
+
+                    if (notificationResult.IsFailure)
+                    {
+                        await unitOfWork.RollbackTransactionAsync();
+
+                        return Result.Failure(
+                            notificationResult.Error);
+                    }
+                }
+
+                await unitOfWork.UserTaskRepository
+                    .DeleteTaskAsync(task.Id);
+
+                await unitOfWork.SaveChangesAsync();
+                await unitOfWork.CommitTransactionAsync();
+
+                logger.LogInformation(
+                    "Task {TaskId} deleted successfully by user {UserId}",
+                    task.Id,
+                    userId);
+
+                return Result.Success();
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(
+                    ex,
+                    "Error deleting task {TaskId} by user {UserId}",
+                    task.Id,
+                    userId);
+
+                try
+                {
+                    await unitOfWork.RollbackTransactionAsync();
+                }
+                catch (Exception rollbackException)
+                {
+                    logger.LogError(
+                        rollbackException,
+                        "Failed to rollback task deletion transaction");
+                }
+
+                return Result.Failure(
+                    Errors.Internal("An error occurred while deleting the task."));
+            }
         }
         catch (Exception ex)
         {
@@ -243,11 +366,34 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger)
         }
 
         var oldName = task.Name;
+
         task.ChangeName(results.Name);
+
+// Уведомляем исполнителя только при фактическом изменении
+// названия и только если переименование выполнил не он.
+        if (task.Name != oldName
+            && task.AssignedToUserID is Guid assigneeId
+            && assigneeId != currentUserId)
+        {
+            var notificationResult =
+                await notificationService.NotifyTaskRenamedAsync(
+                    assigneeId,
+                    task.Id,
+                    oldName,
+                    task.Name);
+
+            if (notificationResult.IsFailure)
+                return Result.Failure(notificationResult.Error);
+        }
+
         await unitOfWork.SaveChangesAsync();
 
-        logger.LogInformation("Task {TaskId} renamed from '{OldName}' to '{NewName}' by user {UserId}", 
-            results.id, oldName, results.Name, currentUserId);
+        logger.LogInformation(
+            "Task {TaskId} renamed from '{OldName}' to '{NewName}' by user {UserId}",
+            task.Id,
+            oldName,
+            task.Name,
+            currentUserId);
 
         return Result.Success();
     }
@@ -323,12 +469,73 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger)
         }
 
         var oldAssignee = task.AssignedToUserID;
-        task.AssignTo(assignTaskDto.AssigneeToUserId);
-        await unitOfWork.SaveChangesAsync();
+        var newAssigneeId = assignTaskDto.AssigneeToUserId;
 
-        logger.LogInformation("Task {TaskId} reassigned from user {OldAssignee} to user {NewAssignee} by user {UserId}", 
-            assignTaskDto.id, oldAssignee?.ToString() ?? "null", assignTaskDto.AssigneeToUserId, currentUserId);
+        if (oldAssignee == newAssigneeId)
+        {
+            logger.LogInformation(
+                "Task {TaskId} is already assigned to user {UserId}",
+                task.Id,
+                newAssigneeId);
 
-        return Result.Success();
+            return Result.Success();
+        }
+
+        try
+        {
+            // Сообщаем новому исполнителю.
+            if (newAssigneeId != currentUserId)
+            {
+                var notificationResult =
+                    await notificationService.NotifyTaskAssignedAsync(
+                        newAssigneeId,
+                        task.Id,
+                        NotificationMessages.TaskAssigned(task.Name));
+
+                if (notificationResult.IsFailure)
+                    return Result.Failure(notificationResult.Error);
+            }
+
+            // Сообщаем прежнему исполнителю, что задача у него больше не назначена.
+            if (oldAssignee.HasValue
+                && oldAssignee.Value != newAssigneeId
+                && oldAssignee.Value != currentUserId)
+            {
+                var notificationResult =
+                    await notificationService.NotifyTaskReassignedAsync(
+                        oldAssignee.Value,
+                        task.Id,
+                        task.Name);
+
+                if (notificationResult.IsFailure)
+                    return Result.Failure(notificationResult.Error);
+            }
+
+            task.AssignTo(newAssigneeId);
+
+            // Сохраняем изменение задачи и оба уведомления одним вызовом.
+            await unitOfWork.SaveChangesAsync();
+
+            logger.LogInformation(
+                "Task {TaskId} reassigned from user {OldAssignee} " +
+                "to user {NewAssignee} by user {UserId}",
+                task.Id,
+                oldAssignee?.ToString() ?? "null",
+                newAssigneeId,
+                currentUserId);
+
+            return Result.Success();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(
+                ex,
+                "Failed to assign task {TaskId} to user {UserId}",
+                task.Id,
+                newAssigneeId);
+
+            return Result.Failure(
+                Errors.Internal("An error occurred while assigning the task."));
+        }
     }
 }

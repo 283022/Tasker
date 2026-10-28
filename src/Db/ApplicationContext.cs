@@ -14,6 +14,8 @@ public class ApplicationContext(DbContextOptions<ApplicationContext> options) : 
     
     public DbSet<TeamJoinRequest> TeamJoinRequests { get; set; }
     
+    public DbSet<Notification> Notifications {get; set;}
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(ApplicationContext).Assembly);

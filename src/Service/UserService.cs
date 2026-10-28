@@ -90,7 +90,7 @@ public class UserService(
         {
             logger.LogWarning("Login failed: invalid password for user {UserId} with email {Email}",
                 user.Id, request.Email);
-            return Result<User>.Failure(Errors.Unauthorized());
+            return Result<User>.Failure(Errors.Validation("Invalid password or email"));
         }
 
         logger.LogInformation("User logged in successfully: {UserId}, email {Email}", user.Id, user.Email.Value);

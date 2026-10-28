@@ -18,13 +18,15 @@ public static class Endpoints
         var teamGroup = group.MapGroup("teams").WithTags("teams");
         var searchGroup = group.MapGroup("search").WithTags("search");
         var accountGroup = group.MapGroup("accounts").WithTags("accounts");
-        
+        var notificationGroup = group.MapGroup("notifications").WithTags("notifications");
+            
         ConfigureAuthEndpoints(authGroup);
         ConfigureUserEndpoints(userGroup);
         ConfigureTaskEndpoints(taskGroup);
         ConfigureTeamEndpoints(teamGroup);
         ConfigureSearchEndpoints(searchGroup);
         ConfigureAccountEndpoints(accountGroup);
+        ConfigureNotificationEndpoints(notificationGroup);
         
         return app;
     }
@@ -810,6 +812,90 @@ public static class Endpoints
         
         
         
+    }
+    
+    
+    private static void ConfigureNotificationEndpoints(RouteGroupBuilder notificationGroup)
+    {
+        // Получить страницу уведомлений текущего пользователя.
+        notificationGroup.MapGet("/", async (
+            [AsParameters] PaginationDto paginationDto,
+            HttpContext httpContext,
+            NotificationService notificationService,
+            TokenService tokenService) =>
+        {
+            var userId =
+                tokenService.GetUserIdFromContext(httpContext);
+
+            if (userId.IsFailure)
+                return Results.Unauthorized();
+
+            var result = await notificationService.GetAllUserNotifyAsync(
+                userId.Value,
+                paginationDto,
+                httpContext.RequestAborted);
+
+            return result.ToHttpResult();
+        });
+
+        // Получить общее количество уведомлений.
+        notificationGroup.MapGet("/count", async (
+            HttpContext httpContext,
+            NotificationService notificationService,
+            TokenService tokenService) =>
+        {
+            var userId =
+                tokenService.GetUserIdFromContext(httpContext);
+
+            if (userId.IsFailure)
+                return Results.Unauthorized();
+
+            var result = await notificationService.GetTotalCountAsync(
+                userId.Value,
+                httpContext.RequestAborted);
+
+            return result.ToHttpResult();
+        });
+
+        // Получить количество непрочитанных уведомлений.
+        notificationGroup.MapGet("/unread-count", async (
+            HttpContext httpContext,
+            NotificationService notificationService,
+            TokenService tokenService) =>
+        {
+            var userId =
+                tokenService.GetUserIdFromContext(httpContext);
+
+            if (userId.IsFailure)
+                return Results.Unauthorized();
+
+            var result = await notificationService.GetUnreadCountAsync(
+                userId.Value,
+                httpContext.RequestAborted);
+
+            return result.ToHttpResult();
+        });
+
+        // Отметить уведомление прочитанным.
+        notificationGroup.MapPatch("/{notificationId:guid}/read", async (
+            Guid notificationId,
+            HttpContext httpContext,
+            NotificationService notificationService,
+            TokenService tokenService) =>
+        {
+            var userId =
+                tokenService.GetUserIdFromContext(httpContext);
+
+            if (userId.IsFailure)
+                return Results.Unauthorized();
+
+            var result = await notificationService.MarkAsReadAsync(
+                notificationId,
+                userId.Value,
+                httpContext.RequestAborted);
+
+            return result.ToHttpResult();
+        });
     }
     
 }

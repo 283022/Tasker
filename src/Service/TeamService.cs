@@ -5,7 +5,7 @@ using src.UnitOfWork;
 
 namespace src.Service;
 
-public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
+public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger, NotificationService notificationService)
 {
     public async Task<Result> CreateAsync(Guid userId, CreateTeamDto createTeamDto)
     {
@@ -112,7 +112,8 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
             return teamIdValidation;
         }
 
-        var team = await unitOfWork.TeamRepository.GetTeamByIdAsync(deleteTeamDto.id);
+        var team = await unitOfWork.TeamRepository
+            .GetTeamWithMembersAsync(deleteTeamDto.id);
         if (team is null)
         {
             logger.LogWarning(
@@ -130,6 +131,23 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
 
         if (adminResult.IsFailure)
             return adminResult;
+
+        foreach (var member in team.Members)
+        {
+            // Не отправляем уведомление пользователю,
+            // который сам удаляет команду.
+            if (member.UserId == userId)
+                continue;
+
+            var notificationResult =
+                await notificationService.NotifyTeamDeletedAsync(
+                    member.UserId,
+                    team.Id,
+                    team.Name);
+
+            if (notificationResult.IsFailure)
+                return Result.Failure(notificationResult.Error);
+        }
 
         await unitOfWork.TeamRepository.DeleteTeamAsync(team);
         await unitOfWork.SaveChangesAsync();
@@ -235,9 +253,20 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
                 Errors.Internal("Failed to create team membership."));
         }
 
-        await unitOfWork.TeamMemberRepository.AddTeamMemberAsync(teamMember.Value);
-        await unitOfWork.SaveChangesAsync();
+        await unitOfWork.TeamMemberRepository
+            .AddTeamMemberAsync(teamMember.Value);
 
+        var notificationResult =
+            await notificationService.NotifyUserAddedToGroupAsync(
+                addUserInTeamDto.UserId,
+                team.Id,
+                team.Name);
+
+        if (notificationResult.IsFailure)
+            return Result.Failure(notificationResult.Error);
+
+        await unitOfWork.SaveChangesAsync();
+        
         logger.LogInformation(
             "User {TargetUserId} added to team {TeamId} by user {UserId}, isAdmin: {IsAdmin}",
             addUserInTeamDto.UserId, team.Id, userId, addUserInTeamDto.IsAdmin);
@@ -328,9 +357,27 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
                 Errors.NotFound("Team membership not found."));
         }
 
-        await unitOfWork.TeamMemberRepository.DeleteTeamMemberAsync(teamMember);
+        var notificationResult =
+            await notificationService.NotifyUserRemovedFromGroupAsync(
+                deleteUserFromTeamDto.UserId,
+                team.Id,
+                team.Name);
+
+        if (notificationResult.IsFailure)
+            return Result.Failure(notificationResult.Error);
+
+        await unitOfWork.TeamMemberRepository
+            .DeleteTeamMemberAsync(teamMember);
+
         await unitOfWork.SaveChangesAsync();
 
+        logger.LogInformation(
+            "User {TargetUserId} removed from team {TeamId} by user {UserId}",
+            deleteUserFromTeamDto.UserId,
+            team.Id,
+            userId);
+
+        
         logger.LogInformation(
             "User {TargetUserId} removed from team {TeamId} by user {UserId}",
             deleteUserFromTeamDto.UserId, team.Id, userId);
@@ -569,6 +616,16 @@ public class TeamService(IUnitOfWork unitOfWork, ILogger<TeamService> logger)
         }
 
         teamMember.ChangeRole(true);
+        
+        var notificationResult =
+            await notificationService.NotifyMemberPromotedToAdminAsync(
+                addUserId,
+                team.Id,
+                team.Name);
+
+        if (notificationResult.IsFailure)
+            return Result.Failure(notificationResult.Error);
+
         await unitOfWork.SaveChangesAsync();
 
         logger.LogInformation(

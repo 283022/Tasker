@@ -9,6 +9,7 @@ public interface IUnitOfWork : IDisposable
     ITeamRepository TeamRepository { get; }
     TeamJoinRequestRepository TeamJoinRequestRepository { get; }
     ITeamMemberRepository TeamMemberRepository { get; }
+    NotificationRepository NotificationRepository { get;  }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task BeginTransactionAsync(CancellationToken cancellationToken = default);
