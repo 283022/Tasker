@@ -133,7 +133,7 @@ public class TeamJoinRequestService(
         return Result<List<JoinRequestDto>>.Success(result);
     }
     
-    public async Task<Result> ApproveAsync(
+    public async Task<Result> ApproveAsync(Guid teamId,
     Guid requestId,
     Guid reviewerUserId)
 {
@@ -151,7 +151,13 @@ public class TeamJoinRequestService(
     if (request is null)
         return Result.Failure(
             Errors.NotFound("Join request", requestId.ToString()));
-
+    
+    if (request.TeamId != teamId)
+    {
+        return Result.Failure(
+            Errors.NotFound("Join request", requestId.ToString()));
+    }
+    
     var team = await unitOfWork.TeamRepository
         .GetTeamByIdAsync(request.TeamId);
 
@@ -227,7 +233,7 @@ public class TeamJoinRequestService(
     }
 }
 
-    public async Task<Result> RejectAsync(
+    public async Task<Result> RejectAsync(Guid teamId,
     Guid requestId,
     Guid reviewerUserId)
 {
@@ -246,6 +252,12 @@ public class TeamJoinRequestService(
         return Result.Failure(
             Errors.NotFound("Join request", requestId.ToString()));
 
+    if (request.TeamId != teamId)
+    {
+        return Result.Failure(
+            Errors.NotFound("Join request", requestId.ToString()));
+    }
+    
     var team = await unitOfWork.TeamRepository
         .GetTeamByIdAsync(request.TeamId);
 

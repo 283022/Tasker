@@ -34,6 +34,8 @@ public class TeamRepository(ApplicationContext context, ILogger<TeamRepository> 
             .Select(team => new TeamDto(
                 team.Id,
                 team.Name,
+                team.IdName,
+                team.JoinPolicy,
                 team.Members
                     .Select(member => new TeamMemberDto(
                         member.UserId,

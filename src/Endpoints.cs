@@ -697,7 +697,11 @@ public static class Endpoints
             var userIdResult = tokenService.GetUserIdFromContext(context);
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
-            var result = await teamJoinRequestService.ApproveAsync(id, userIdResult.Value);
+            var result = await teamJoinRequestService.ApproveAsync(
+                id,
+                joinRequestId,
+                userIdResult.Value
+            );
             return result.ToHttpResult();
         });
         
@@ -709,7 +713,11 @@ public static class Endpoints
             var userIdResult = tokenService.GetUserIdFromContext(context);
             if (userIdResult.IsFailure)
                 return Results.Unauthorized();
-            var result = await teamJoinRequestService.RejectAsync(id, userIdResult.Value);
+            var result = await teamJoinRequestService.RejectAsync(
+                id,
+                joinRequestId,
+                userIdResult.Value
+            );
             return result.ToHttpResult();
         });
         
