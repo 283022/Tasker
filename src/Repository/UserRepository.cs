@@ -78,8 +78,8 @@ public class UserRepository(ApplicationContext context, ILogger<UserRepository> 
 
         return await context.Users
             .AsNoTracking()
-            .Where(u => EF.Functions.ILike(u.DisplayName, $"%{query}%"))
-            .OrderBy(u => u.DisplayName == query && u.Visible == true)
+            .Where(u => EF.Functions.ILike(u.DisplayName, $"%{query}%") && u.Visible == true)
+            .OrderBy(u => u.DisplayName == query)
             .Take(5)
             .ToListAsync(cancellationToken);
     }
