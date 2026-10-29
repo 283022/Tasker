@@ -1,7 +1,7 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using Serilog;
-using Serilog.Events;
 using src;
 using src.Auth;
 using src.Db;
@@ -23,6 +23,17 @@ builder.Services.AddCors(options =>
                 .AllowAnyMethod()
                 .AllowCredentials();
         });
+});
+
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(
+        new JsonStringEnumConverter(
+            namingPolicy: null,
+            allowIntegerValues: false
+        )
+    );
 });
 
 builder.Services.AddOpenApi();
@@ -89,6 +100,12 @@ app.UseExceptionHandler("/error");
 app.UseAuthentication();
 app.UseAuthorization();
 app.AddAllEndpoints();
+
+app.Map("/Error", () =>
+        Results.Problem(
+            title: "An unexpected error occurred.",
+            statusCode: StatusCodes.Status500InternalServerError))
+    .AllowAnonymous();
 
 //ТОЛЬКО ДЛЯ ЭТОГО ПРОЕКТА
 //В РЕАЛЬНО ПРОДЕ CI/CD пайплайн должен применять миграцию

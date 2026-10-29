@@ -377,6 +377,82 @@ public static class Endpoints
             .ProducesProblem(500)
             .WithSummary("Delete task")
             .WithDescription("Deletes a task. Only the author or a team admin can delete it.");
+        
+        taskGroup.MapPatch("/{id:guid}/status", async (
+                [FromRoute] Guid id,
+                [FromBody] ChangeTaskStatusDto dto,
+                HttpContext context,
+                [FromServices] TaskService taskService,
+                [FromServices] TokenService tokenService,
+                CancellationToken cancellationToken) =>
+            {
+                var userIdResult = tokenService.GetUserIdFromContext(context);
+
+                if (userIdResult.IsFailure)
+                    return Results.Unauthorized();
+
+                var result = await taskService.ChangeStatusAsync(
+                    id,
+                    userIdResult.Value,
+                    dto.Status,
+                    cancellationToken);
+
+                return result.ToHttpResult();
+            })
+            .RequireAuthorization()
+            .WithSummary("Change task status")
+            .WithDescription("Changes the status of a task.");
+        
+        taskGroup.MapPatch("/{id:guid}/description", async (
+                [FromRoute] Guid id,
+                [FromBody] ChangeTaskMarkdownDto dto,
+                HttpContext context,
+                [FromServices] TaskService taskService,
+                [FromServices] TokenService tokenService,
+                CancellationToken cancellationToken) =>
+            {
+                var userIdResult = tokenService.GetUserIdFromContext(context);
+
+                if (userIdResult.IsFailure)
+                    return Results.Unauthorized();
+
+                var result = await taskService.ChangeMarkdownTextAsync(
+                    id,
+                    userIdResult.Value,
+                    dto.MarkdownText,
+                    cancellationToken);
+
+                return result.ToHttpResult();
+            })
+            .RequireAuthorization()
+            .WithSummary("Change task description")
+            .WithDescription("Updates the Markdown description of a task.");
+        
+        taskGroup.MapPatch("/{id:guid}/deadline", async (
+                [FromRoute] Guid id,
+                [FromBody] ChangeTaskDueAtDto dto,
+                HttpContext context,
+                [FromServices] TaskService taskService,
+                [FromServices] TokenService tokenService,
+                CancellationToken cancellationToken) =>
+            {
+                var userIdResult = tokenService.GetUserIdFromContext(context);
+
+                if (userIdResult.IsFailure)
+                    return Results.Unauthorized();
+
+                var result = await taskService.ChangeDueAtAsync(
+                    id,
+                    userIdResult.Value,
+                    dto.DueAt,
+                    cancellationToken);
+
+                return result.ToHttpResult();
+            })
+            .RequireAuthorization()
+            .WithSummary("Change task deadline")
+            .WithDescription("Sets, changes or removes the deadline of a task.");
+        
     }
     
     // TEAM ENDPOINTS

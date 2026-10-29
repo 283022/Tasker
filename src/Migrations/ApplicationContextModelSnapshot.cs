@@ -232,14 +232,20 @@ namespace src.Migrations
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
 
-                    b.Property<Guid?>("AssignedToUserID")
+                    b.Property<Guid?>("AssignedToUserId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("CreateByUserID")
+                    b.Property<Guid>("CreateByUserId")
                         .HasColumnType("uuid");
 
-                    b.Property<bool>("IsCompleted")
-                        .HasColumnType("boolean");
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("DueAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("MarkdownText")
+                        .HasColumnType("text");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -247,13 +253,23 @@ namespace src.Migrations
                         .HasColumnType("character varying(254)")
                         .HasColumnName("Name_Value");
 
-                    b.Property<Guid?>("TeamID")
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid?>("TeamId")
                         .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id")
                         .HasName("PK_UserTask");
 
-                    b.HasIndex("CreateByUserID");
+                    b.HasIndex("CreateByUserId");
+
+                    b.HasIndex("DueAt");
 
                     b.ToTable("UserTasks", (string)null);
                 });
@@ -305,7 +321,7 @@ namespace src.Migrations
                 {
                     b.HasOne("src.Domain.Entities.User", null)
                         .WithMany()
-                        .HasForeignKey("CreateByUserID")
+                        .HasForeignKey("CreateByUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

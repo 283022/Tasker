@@ -11,7 +11,7 @@ public class UserTaskRepository(ApplicationContext context, ILogger<UserTaskRepo
     {
         logger.LogTrace("Checking if user {UserId} is author of task {TaskId}", userId, taskId);
         return await context.Tasks
-            .AnyAsync(task => task.Id == taskId && task.CreateByUserID == userId);
+            .AnyAsync(task => task.Id == taskId && task.CreateByUserId == userId);
     }
     
     public async Task<UserTask?> GetTaskByIdAsync(Guid taskId)
@@ -30,7 +30,7 @@ public class UserTaskRepository(ApplicationContext context, ILogger<UserTaskRepo
     {
         logger.LogDebug("Fetching tasks for user {UserId}", userId);
         var tasks = await context.Tasks
-            .Where(t => t.CreateByUserID == userId || t.AssignedToUserID == userId)
+            .Where(t => t.CreateByUserId == userId || t.AssignedToUserId == userId)
             .ToListAsync();
         
         logger.LogDebug("Found {Count} tasks for user {UserId}", tasks.Count, userId);
@@ -42,7 +42,7 @@ public class UserTaskRepository(ApplicationContext context, ILogger<UserTaskRepo
     {
         logger.LogDebug("Fetching tasks for team {TeamId}", teamId);
         var tasks = await context.Tasks
-            .Where(t => t.TeamID == teamId)
+            .Where(t => t.TeamId == teamId)
             .ToListAsync();
         
         logger.LogDebug("Found {Count} tasks for team {TeamId}", tasks.Count, teamId);
@@ -69,7 +69,7 @@ public class UserTaskRepository(ApplicationContext context, ILogger<UserTaskRepo
     public async Task AddTaskAsync(UserTask task)
     {
         logger.LogDebug("Adding new task '{TaskName}' created by user {UserId}", 
-            task.Name, task.CreateByUserID);
+            task.Name, task.CreateByUserId);
         await context.Tasks.AddAsync(task);
     }
     
@@ -113,29 +113,29 @@ public class UserTaskRepository(ApplicationContext context, ILogger<UserTaskRepo
         }
     
         // 1. Если пользователь — исполнитель задачи
-        if (task.AssignedToUserID == userId)
+        if (task.AssignedToUserId == userId)
         {
             logger.LogTrace("User {UserId} is the assignee of task {TaskId}", userId, taskId);
             return true;
         }
     
         // 2. Если у задачи есть команда и пользователь — админ этой команды
-        if (task.TeamID.HasValue)
+        if (task.TeamId.HasValue)
         {
             var isAdmin = await context.TeamMembers
-                .AnyAsync(tm => tm.TeamId == task.TeamID.Value && 
+                .AnyAsync(tm => tm.TeamId == task.TeamId.Value && 
                                 tm.UserId == userId && 
                                 tm.IsAdmin);
             if (isAdmin)
             {
                 logger.LogTrace("User {UserId} is admin of team {TeamId} for task {TaskId}", 
-                    userId, task.TeamID.Value, taskId);
+                    userId, task.TeamId.Value, taskId);
                 return true;
             }
         }
     
         // 3. Если пользователь — создатель задачи
-        if (task.CreateByUserID == userId)
+        if (task.CreateByUserId == userId)
         {
             logger.LogTrace("User {UserId} is the creator of task {TaskId}", userId, taskId);
             return true;

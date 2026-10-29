@@ -20,10 +20,12 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger, No
         }
 
         var results = UserTask.Create(
-            createTaskDto.Name,
-            currentUserId,
-            createTaskDto.teamId,
-            createTaskDto.assignedToUserId);
+            name: createTaskDto.Name,
+            createByUserId: currentUserId,
+            teamId: createTaskDto.TeamId,
+            assignedToUserId: createTaskDto.AssignedToUserId,
+            markdownText: createTaskDto.MarkdownText,
+            dueAt: createTaskDto.DueAt);
 
         if (results.IsFailure)
         {
@@ -33,16 +35,16 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger, No
 
         var task = results.Value;
 
-        if (task.CreateByUserID != currentUserId)
+        if (task.CreateByUserId != currentUserId)
         {
             logger.LogWarning("Task creation failed: user {UserId} cannot create task for another user", currentUserId);
             return Result<Guid>.Failure(Errors.Forbidden("Cannot create task for another user."));
         }
 
-        bool isPersonal = task.AssignedToUserID == null && task.TeamID == null;
-        bool isTeamTask = task.AssignedToUserID != null && task.TeamID != null;
-        bool isInvalid = (task.AssignedToUserID == null && task.TeamID != null) ||
-                         (task.AssignedToUserID != null && task.TeamID == null);
+        bool isPersonal = task.AssignedToUserId == null && task.TeamId == null;
+        bool isTeamTask = task.AssignedToUserId != null && task.TeamId != null;
+        bool isInvalid = (task.AssignedToUserId == null && task.TeamId != null) ||
+                         (task.AssignedToUserId != null && task.TeamId == null);
 
         if (isInvalid)
         {
@@ -53,8 +55,8 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger, No
 
         if (isTeamTask)
         {
-            var teamId = task.TeamID.Value;
-            var assignedUserId = task.AssignedToUserID.Value;
+            var teamId = task.TeamId.Value;
+            var assignedUserId = task.AssignedToUserId.Value;
 
             logger.LogDebug("Creating team task in team {TeamId} for user {AssignedUserId}", teamId, assignedUserId);
 
@@ -171,10 +173,6 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger, No
                 Errors.Internal("An error occurred while creating the task."));
         }
 
-        logger.LogInformation("Task created successfully: {TaskId}, name '{TaskName}', user {UserId}", 
-            task.Id, task.Name, currentUserId);
-
-        return Result<Guid>.Success(task.Id);
     }
 
     public async Task<Result> DeleteAsync(DeleteTaskDto deleteTaskDto, Guid userId)
@@ -223,7 +221,7 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger, No
 
             try
             {
-                if (task.AssignedToUserID is Guid assigneeId
+                if (task.AssignedToUserId is Guid assigneeId
                     && assigneeId != userId)
                 {
                     var notificationResult =
@@ -292,6 +290,7 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger, No
         {
             logger.LogWarning("Get tasks failed: user ID is empty");
             return Result<IEnumerable<UserTask>>.Failure(Errors.Validation("User ID cannot be empty.", "userId"));
+            
         }
 
         var tasks = await unitOfWork.UserTaskRepository.GetTasksByUserAsync(userId);
@@ -372,7 +371,7 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger, No
 // Уведомляем исполнителя только при фактическом изменении
 // названия и только если переименование выполнил не он.
         if (task.Name != oldName
-            && task.AssignedToUserID is Guid assigneeId
+            && task.AssignedToUserId is Guid assigneeId
             && assigneeId != currentUserId)
         {
             var notificationResult =
@@ -434,13 +433,13 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger, No
             return Result.Failure(Errors.NotFound("Task", assignTaskDto.id.ToString()));
         }
 
-        if (!task.TeamID.HasValue)
+        if (!task.TeamId.HasValue)
         {
             logger.LogWarning("Assign task failed: task {TaskId} is not assigned to any team", assignTaskDto.id);
             return Result.Failure(Errors.Validation("This task is not assigned to any team."));
         }
 
-        var teamId = task.TeamID.Value;
+        var teamId = task.TeamId.Value;
 
         var isAdmin = await unitOfWork.TeamMemberRepository.IsUserAdminAsync(teamId, currentUserId);
         if (!isAdmin)
@@ -468,7 +467,7 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger, No
             return Result.Failure(Errors.NotFound("User", assignTaskDto.AssigneeToUserId.ToString()));
         }
 
-        var oldAssignee = task.AssignedToUserID;
+        var oldAssignee = task.AssignedToUserId;
         var newAssigneeId = assignTaskDto.AssigneeToUserId;
 
         if (oldAssignee == newAssigneeId)
@@ -538,4 +537,102 @@ public class TaskService(IUnitOfWork unitOfWork, ILogger<TaskService> logger, No
                 Errors.Internal("An error occurred while assigning the task."));
         }
     }
+    
+    public async Task<Result> ChangeStatusAsync(
+        Guid taskId,
+        Guid currentUserId,
+        UserTaskStatus newStatus,
+        CancellationToken cancellationToken = default)
+    {
+        var taskResult = await GetTaskForModificationAsync(
+            taskId, currentUserId);
+
+        if (taskResult.IsFailure)
+            return Result.Failure(taskResult.Error);
+
+        var result = taskResult.Value.ChangeStatus(newStatus);
+
+        if (result.IsFailure)
+            return result;
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success();
+    }
+
+    public async Task<Result> ChangeMarkdownTextAsync(
+        Guid taskId,
+        Guid currentUserId,
+        string? markdownText,
+        CancellationToken cancellationToken = default)
+    {
+        var taskResult = await GetTaskForModificationAsync(
+            taskId, currentUserId);
+
+        if (taskResult.IsFailure)
+            return Result.Failure(taskResult.Error);
+
+        var result = taskResult.Value.ChangeMarkdownText(markdownText);
+
+        if (result.IsFailure)
+            return result;
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success();
+    }
+
+    public async Task<Result> ChangeDueAtAsync(
+        Guid taskId,
+        Guid currentUserId,
+        DateTimeOffset? dueAt,
+        CancellationToken cancellationToken = default)
+    {
+        var taskResult = await GetTaskForModificationAsync(
+            taskId, currentUserId);
+
+        if (taskResult.IsFailure)
+            return Result.Failure(taskResult.Error);
+
+        var result = taskResult.Value.ChangeDueAt(dueAt);
+
+        if (result.IsFailure)
+            return result;
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        return Result.Success();
+        
+    }
+    private async Task<Result<UserTask>> GetTaskForModificationAsync(
+        Guid taskId,
+        Guid userId)
+    {
+        if (taskId == Guid.Empty)
+            return Result<UserTask>.Failure(
+                Errors.Validation("Task ID cannot be empty.", "taskId"));
+
+        if (userId == Guid.Empty)
+            return Result<UserTask>.Failure(
+                Errors.Validation("User ID cannot be empty.", "userId"));
+
+        var task = await unitOfWork.UserTaskRepository
+            .GetTaskByIdAsync(taskId);
+
+        if (task is null)
+            return Result<UserTask>.Failure(
+                Errors.NotFound("Task", taskId.ToString()));
+
+        var canManage = await unitOfWork.UserTaskRepository
+            .CanUserManageTaskAsync(taskId, userId);
+
+        if (!canManage)
+            return Result<UserTask>.Failure(
+                Errors.Forbidden(
+                    "You don't have permission to modify this task."));
+
+        return Result<UserTask>.Success(task);
+    }
+    
+    
 }

@@ -27,12 +27,14 @@ public record LoginUserDto(
 /// DTO для создания новой задачи
 /// </summary>
 /// <param name="Name">Название задачи</param>
-/// <param name="assignedToUserId">ID пользователя, которому назначается задача (опционально)</param>
-/// <param name="teamId">ID команды, если задача командная (опционально)</param>
+/// <param name="AssignedToUserId">ID пользователя, которому назначается задача (опционально)</param>
+/// <param name="TeamId">ID команды, если задача командная (опционально)</param>
 public record CreateTaskDto(
     [Required] string Name,
-    Guid? assignedToUserId,
-    Guid? teamId);
+    Guid? AssignedToUserId,
+    Guid? TeamId,
+    string? MarkdownText, 
+    DateTimeOffset? DueAt);
 
 /// <summary>
 /// DTO для удаления задачи
@@ -191,3 +193,9 @@ public record NotificationDto(
 
 public record NotificationsUserDto(
     IReadOnlyList<NotificationDto> Notifications);
+    
+public record ChangeTaskStatusDto(UserTaskStatus Status);
+
+public record ChangeTaskMarkdownDto(string? MarkdownText);
+
+public record ChangeTaskDueAtDto(DateTimeOffset? DueAt);
